@@ -40,6 +40,6 @@
     }
   },
   "files": {
-    "includes": ["**", "!dist"]
+    "includes": ["**", "!dist", "!src/smallplayer.ts", "!src/_demo"]
   }
 }

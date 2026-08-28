@@ -1,208 +1,121 @@
-import { zzfxM } from './zzfxm';
+import pack, { ENEMY_HIT, expandSfx, HORN_ATTACK, NOVA_FIRE, PICKUP, POWERUP } from './pickup-sfx';
+import { muted } from './save';
+import song, { CPlayer } from './smallplayer';
 
-export const music = zzfxM(
-  [
-    [0.4, 0, , 0.1, 0.25, 0.25, 2, 0.2, , , , , , 0.1, , , 0.06, , 0.1, 0.21],
-    [, 0, 440, , , 0.15, 2, 0.2, -0.1, , 9, 0.02, , 0.1, 0.12, , 0.06],
-    [0.4, 0, , 0.1, 1, 0.25, 2, 0.2, , , , , , 0.1, , , 0.06, , 0.1, 0.21],
-  ],
-  [
-    [
-      [
-        ,
-        ,
-        8,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        11,
-        ,
-        ,
-        ,
-        15,
-        ,
-        ,
-        ,
-        14,
-        ,
-        ,
-        ,
-        7,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        6,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        6,
-        ,
-        ,
-        ,
-        9,
-        ,
-        14,
-        ,
-        13,
-        ,
-        ,
-        ,
-        5,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-        ,
-      ],
-      [
-        1,
-        ,
-        8,
-        11,
-        15,
-        16,
-        8,
-        11,
-        15,
-        16,
-        8,
-        11,
-        15,
-        16,
-        8,
-        11,
-        15,
-        16,
-        7,
-        10,
-        15,
-        16,
-        7,
-        10,
-        15,
-        16,
-        10,
-        15,
-        16,
-        7,
-        10,
-        15,
-        16,
-        6,
-        9,
-        15,
-        16,
-        6,
-        9,
-        15,
-        16,
-        6,
-        9,
-        15,
-        16,
-        6,
-        9,
-        15,
-        16,
-        5,
-        8,
-        15,
-        16,
-        5,
-        8,
-        15,
-        16,
-        5,
-        8,
-        15,
-        16,
-        5,
-        8,
-        15,
-        16,
-      ],
-    ],
-    [
-      [2, , 4, , , , , , , , , , , , , , , , 4, , , , , , , , , , , , , , , , 3, , , , , , , , , , , , , , , , , , , ,],
-      [
-        1,
-        ,
-        4,
-        8,
-        13,
-        15,
-        4,
-        8,
-        13,
-        15,
-        4,
-        8,
-        13,
-        15,
-        4,
-        8,
-        13,
-        15,
-        3,
-        8,
-        13,
-        15,
-        3,
-        8,
-        13,
-        15,
-        3,
-        8,
-        13,
-        15,
-        3,
-        8,
-        13,
-        15,
-        1,
-        7,
-        10,
-        13,
-        7,
-        10,
-        13,
-        16,
-        10,
-        13,
-        16,
-        13,
-        16,
-        19,
-        16,
-        19,
-        22,
-        19,
-        22,
-        25,
-      ],
-    ],
-  ],
-  [0, 1],
-  90,
-);
+type Box = {
+  init(data: unknown): void;
+  generate(): number;
+  createAudioBuffer(ctx: AudioContext): AudioBuffer;
+};
+
+function box(): Box {
+  return new (CPlayer as unknown as { new (): Box })();
+}
+
+const player = box();
+player.init(song);
+
+const sfxPlayers = pack.map((entry) => {
+  const p = box();
+  p.init(expandSfx(entry));
+  while (p.generate() < 1) {}
+  return p;
+});
+
+let ctx: AudioContext | undefined;
+let gain: GainNode | undefined;
+const sfxBufs: (AudioBuffer | undefined)[] = [];
+let progress = 0;
+let pumping = false;
+let playing = false;
+
+function pump(): void {
+  if (pumping) {
+    return;
+  }
+  pumping = true;
+  const step = (): void => {
+    if (progress < 1) {
+      progress = player.generate();
+      requestAnimationFrame(step);
+      return;
+    }
+    pumping = false;
+    if (!ctx || playing) {
+      return;
+    }
+    playing = true;
+    const src = ctx.createBufferSource();
+    src.buffer = player.createAudioBuffer(ctx);
+    src.loop = true;
+    src.connect(gain as GainNode);
+    src.start();
+    applyMute();
+  };
+  step();
+}
+
+function audio(): AudioContext {
+  if (!ctx) {
+    ctx = new AudioContext();
+    gain = ctx.createGain();
+    gain.connect(ctx.destination);
+  }
+  ctx.resume();
+  applyMute();
+  return ctx;
+}
+
+function play(): void {
+  audio();
+  pump();
+}
+
+function playSfx(id: number): void {
+  if (muted) {
+    return;
+  }
+  const ac = audio();
+  sfxBufs[id] ||= sfxPlayers[id].createAudioBuffer(ac);
+  const src = ac.createBufferSource();
+  src.buffer = sfxBufs[id];
+  src.connect(gain as GainNode);
+  src.start();
+}
+
+export function applyMute(): void {
+  if (gain) {
+    gain.gain.value = muted ? 0 : 1;
+  }
+}
+
+export function playCrystal(): void {
+  playSfx(PICKUP);
+}
+
+export function playPowerup(): void {
+  playSfx(POWERUP);
+}
+
+export function playNova(): void {
+  playSfx(NOVA_FIRE);
+}
+
+export function playHit(): void {
+  playSfx(ENEMY_HIT);
+}
+
+export function playHorn(): void {
+  playSfx(HORN_ATTACK);
+}
+
+export function initMusic(): void {
+  pump();
+  const unlock = (): void => {
+    play();
+    window.removeEventListener('pointerdown', unlock);
+    window.removeEventListener('keydown', unlock);
+  };
+  window.addEventListener('pointerdown', unlock);
+  window.addEventListener('keydown', unlock);
+}
