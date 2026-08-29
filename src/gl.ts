@@ -128,6 +128,25 @@ export function resizeGl(w: number, h: number): void {
   perspective(proj, CAM_FOV, w / Math.max(h, 1), 0.2, 220);
 }
 
+/** NDC → CSS pixels for overlay layout (title START under the hooves). */
+export function projectScreen(
+  view: Float32Array,
+  x: number,
+  y: number,
+  z: number,
+  cssW: number,
+  cssH: number,
+  out: number[]
+): void {
+  mul(tmp, proj, view);
+  const cx = tmp[0] * x + tmp[4] * y + tmp[8] * z + tmp[12];
+  const cy = tmp[1] * x + tmp[5] * y + tmp[9] * z + tmp[13];
+  const cw = tmp[3] * x + tmp[7] * y + tmp[11] * z + tmp[15];
+  const inv = 1 / cw;
+  out[0] = (cx * inv * 0.5 + 0.5) * cssW;
+  out[1] = (0.5 - cy * inv * 0.5) * cssH;
+}
+
 export function setSky(r: number, g: number, b: number): void {
   gl.clearColor(r, g, b, 1);
 }

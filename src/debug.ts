@@ -26,7 +26,7 @@ import {
 import { cssH, scene } from './ui';
 import { burstCount } from './world';
 
-let showFeel = true;
+let showFeel = false;
 
 function ms(n: number): string {
   return ((n * 1000 + 0.5) | 0) + 'ms';

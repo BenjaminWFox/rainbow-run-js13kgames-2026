@@ -106,8 +106,9 @@ There is no story win — a run is a new **best distance**.
 ### Title screen and flow
 
 - **Title screen:** title **"RAINBOW RUN"** at the top (system font, sans-serif). **Start**
-  sits under best/crystals; **Upgrades** and **mute** are pinned to the bottom. Best
-  distance and banked crystals are shown. A 3D unicorn walks the road behind the menu.
+  sits just below the unicorn's hooves; **Upgrades** and **mute** are a smaller pair
+  on the next row. Best distance and banked crystals are shown. A 3D unicorn walks
+  the road behind the menu.
 - **Start** begins a run immediately (no cutscene).
 - **Full loop:** title → Start → run → death overlay → title. Upgrades are only from the
   title screen (not forced after death). Pause menu's **Quit to Menu** returns to the title

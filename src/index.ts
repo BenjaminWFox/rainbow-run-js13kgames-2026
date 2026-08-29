@@ -8,7 +8,7 @@ import {
   SKY_G,
   SKY_R,
 } from './constants';
-import { beginFrame, initGl, resizeGl, setDrawAlpha, setSky } from './gl';
+import { beginFrame, initGl, projectScreen, resizeGl, setDrawAlpha, setSky } from './gl';
 import {
   clearFrameInput,
   initInput,
@@ -23,7 +23,7 @@ import {
 } from './input';
 import { lookAt, mat4 } from './math';
 import { initMusic } from './music';
-import { pointOnPath, tangent } from './path';
+import { pathFrame, pointOnPath, tangent } from './path';
 import {
   dying,
   falling,
@@ -55,6 +55,7 @@ import {
   SCENE_SHOP,
   SCENE_TITLE,
   scene,
+  setTitleHoofY,
   setViewSize,
 } from './ui';
 import { drawUnicorn } from './unicorn';
@@ -64,6 +65,7 @@ const canvas = document.querySelector('#c') as HTMLCanvasElement;
 const uiCanvas = document.querySelector('#u') as HTMLCanvasElement;
 const ui = uiCanvas.getContext('2d') as CanvasRenderingContext2D;
 const view = mat4();
+const hoof = [0, 0, 0];
 
 let decoS = 0;
 let onMenu = true;
@@ -128,6 +130,11 @@ function renderWorld(): void {
     if (fading) {
       setDrawAlpha(1);
     }
+  }
+  if (scene === SCENE_TITLE) {
+    pathFrame(cs, 0, 0, -0.55, hoof);
+    projectScreen(view, hoof[0], hoof[1], hoof[2], canvas.clientWidth, canvas.clientHeight, hoof);
+    setTitleHoofY(hoof[1]);
   }
 }
 
