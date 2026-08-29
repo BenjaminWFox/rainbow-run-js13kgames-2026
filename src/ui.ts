@@ -441,15 +441,16 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
   if (scene === SCENE_DEATH) {
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fillRect(0, 0, cssW, cssH);
-    const d0 = cssH * 0.28;
-    const dStep = cssH * 0.13;
-    plate(ctx, 'RUN OVER', cssW * 0.5, d0, 36, 'center');
-    plate(ctx, lastDist + ' m', cssW * 0.5, d0 + dStep, 28, 'center');
-    plate(ctx, '+' + lastGems + ' CRYSTALS', cssW * 0.5, d0 + dStep * 2, 22, 'center', '#7ef');
+    const d0 = cssH * 0.18 - 50;
+    const d1 = cssH * 0.28 - 50;
+    const d2 = cssH * 0.28 + 20;
+    rainbowTitle(ctx, 'RUN OVER', d0, Math.min(72, cssW * 0.12));
+    plate(ctx, lastDist + ' m', cssW * 0.5, d1, 28, 'center');
+    plate(ctx, '+' + lastGems + ' CRYSTALS', cssW * 0.5, d2, 22, 'center', '#7ef');
     if (newBest) {
-      plate(ctx, 'NEW BEST!', cssW * 0.5, d0 + dStep * 3, 26, 'center', '#ffd24a');
+      plate(ctx, 'NEW BEST!', cssW * 0.5, d2 + (d2 - d1), 26, 'center', '#ffd24a');
     }
-    plate(ctx, 'TAP TO CONTINUE', cssW * 0.5, cssH * 0.78, 36, 'center');
+    plate(ctx, 'TAP TO CONTINUE', cssW * 0.5, cssH * 0.88, 36, 'center');
   }
 
   if (scene !== SCENE_RUN && scene !== SCENE_DEATH) {

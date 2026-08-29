@@ -72,7 +72,7 @@ These rules govern how code is written for this project.
     | Moving hazards | Extra update + spawn rules |
     | Temple-style L/T junctions | Dual-meaning left/right vs 3 lanes |
     | Landscape / sky props | Road + unicorn only to start |
-    | Shop extra lives at run start | Base kit is 3; on-track hearts are the v1 extra-life path |
+    | Shop extra lives at run start | Shipped: base 2 lives; Health ranks add +1 at run start |
 
 All timing in this spec is expressed in **real time** (seconds/milliseconds), never frames.
 
@@ -98,7 +98,7 @@ There is no story win — a run is a new **best distance**.
   total road width is **~3.3× unicorn width**. Seven **longitudinal** ROYGBIV bands are painted
   across the full width; they do **not** align 1:1 with lanes (the rainbow should not read as
   three fat highways).
-- **A run:** spawn in the **middle lane**, 3 lives, shop bonuses applied. Distance and
+- **A run:** spawn in the **middle lane**, **2 lives** plus Health ranks, shop bonuses applied. Distance and
   in-run crystal count start at 0. Death (0 lives) ends the run. Banked crystals and shop
   ranks persist; best distance updates if this run beat it.
 - **Win:** beat your best distance. Endless otherwise.
@@ -116,7 +116,7 @@ There is no story win — a run is a new **best distance**.
 
 ### Run loop
 
-1. **Start:** middle lane, 3 lives, shop ranks applied, speed at the start value.
+1. **Start:** middle lane, **2 + Health rank** lives, shop ranks applied, speed at the start value.
 2. **Play:** auto-run. Lane / jump / duck. Obstacles and crystals spawn ahead and cull behind.
 3. **Hit or fall:** lose 1 life, **~2s flashing invulnerability**. An **obstacle** hit
    explodes that barrier into rainbow boxes and you stay in the current lane. A **fall
@@ -132,8 +132,9 @@ death screen (which ends the run).
 
 ### Player
 
-- **Lives:** baseline **3** per run. No HP bar. A 1-hit **shield** is a possible shop row,
-  not in the base kit.
+- **Lives:** baseline **2** per run. Each **Health** shop rank adds **+1 starting life**.
+  No HP bar. On-track hearts still add a life with no cap. A 1-hit **shield** is a
+  shop-gated pickup, not in the base kit.
 - **I-frames:** **~2 seconds** after a non-fatal hit or fall. Unicorn **flashes** (~8 Hz
   skip-draw) except during a visible fall or the death fade. During i-frames, obstacles
   and side-falls do **not** apply; crystals still collect once you are back on the
@@ -163,10 +164,10 @@ death screen (which ends the run).
   Starts at **550ms**. **Swipe down** or **arrow down / S**. Pose: unicorn
   **splayed on its belly**.
 - **Jump vs slide:** opposite gesture **cancels** the current pose only after the
-  matching shop unlock (**Cancel Jump** / **Cancel Slide**). Without the unlock you
-  stay in the pose until it finishes. With Cancel Jump: down while jumping fast-falls
-  to **run**; a second down queues a slide until land. With Cancel Slide: up while
-  sliding stands up (then up again jumps).
+  matching shop unlock (**X-Jump** / **X-Slide**). Without the unlock you stay in the
+  pose until it finishes. With X-Jump: down while jumping fast-falls to **run**; a
+  second down queues a slide until land. With X-Slide: up while sliding stands up
+  (then up again jumps).
 
 ### Speed and difficulty
 
@@ -200,9 +201,10 @@ a safe lane or a jump/duck that works). Fair telegraph before a hairpin.
 - Magnet (shop) pulls and collects by **lane reach**, not a growing radius (see Shop).
   Pull aims slightly ahead so gems cannot stall on the tail; catch radius grows with
   speed. No pickup and no magnet pull while falling off the track.
-- **Track powerups** (shop-gated, spawn on open lanes; ranks raise rate): **Shield**
-  (yellow, 1 obstacle hit), **Heart** (extra life, no cap), **Wings** (1 fall).
-  Shield does not stop a fall; wings do not stop an obstacle.
+- **Track powerups** (shop-gated, spawn on open lanes; ranks raise spawn chance):
+  **Shield** (yellow, 1 obstacle hit), **Heart** (extra life, no cap), **Wings**
+  (1 fall). Shield does not stop a fall; wings do not stop an obstacle. Equipped
+  wings are **side-mounted** grey plates (not on the rump).
 
 ### Fail states
 
@@ -259,39 +261,44 @@ mobile Chrome). Safari is not a support target, but don't *deliberately* break i
 |-------|----------|
 | Crystals | Banked total |
 | Best distance | Integer meters |
-| Shop ranks | Array, one int per row (0–3) |
+| Shop ranks | Array, one int per row (order in Shop below) |
 | Mute | Boolean |
+| `v` | Save layout version (`2` = current shop order; older blobs are remapped on load) |
 
 Corrupt / missing / private-mode saves are ignored (start fresh). A run does **not**
 save position, lives, or in-run crystals separately — those either bank at end or vanish.
 
 ### Shop (Upgrades)
 
-Reachable from the title **Upgrades** button. Spend **banked crystals**. Most rows
-have **3 ranks** (placeholder prices 6 / 14 / 24). Cancel Jump and Cancel Slide are
-**1-rank** unlocks (10 crystals). Tune later.
+Reachable from the title **Upgrades** button. Spend **banked crystals**. Selecting a
+row shows **flavor text** and does **not** buy; **BUY** confirms. **BACK** is beside
+Buy. Maxed rows show rank only (no MAX / no price). **Crystal value** is not a shop
+row — each gem is worth **1**.
 
-| Row | Ranks |
-|-----|-------|
-| Magnet | **Lane reach:** (1) current lane, including above/below you; (2) adjacent lanes (center reaches both); (3) all three lanes |
-| Crystal value | More banked crystals per pickup |
-| Start speed | Faster at run start |
-| Jump height | Higher jump per rank |
-| Cancel Jump | Unlock: down during a jump cancels to run |
-| Cancel Slide | Unlock: up during a slide stands up |
-| Shield | Track pickups; ranks raise spawn rate. 1 obstacle save. Yellow glow |
-| Health | Track hearts; ranks raise spawn rate. +1 life, no cap |
-| Wings | Track pickups; ranks raise spawn rate. 1 fall save (swoop back). Grey back wings |
+Most rows have **3 ranks**; X-Jump and X-Slide are **1-rank**. The listed price is
+charged **per rank**.
+
+| Row | Price | Effect |
+|-----|-------|--------|
+| Speed | 250 | Faster at run start |
+| Jump | 250 | Higher jump per rank |
+| Magnet | 499 | **Lane reach:** (1) current lane, including above/below you; (2) adjacent lanes (center reaches both); (3) all three lanes |
+| Shield | 499 | Track pickups; ranks raise spawn chance. 1 obstacle save. Yellow glow |
+| Health | 499 | Track hearts (ranks raise spawn chance; +1 life, no cap). Each rank also **+1 starting life** |
+| Wings | 499 | Track pickups; ranks raise spawn chance. 1 fall save (swoop back). Grey side wings |
+| X-Jump | 999 | Unlock: down during a jump cancels to run |
+| X-Slide | 999 | Unlock: up during a slide stands up |
 
 ### Death overlay
 
-Shown after the last-life fade. Evenly stacked:
+Shown after the last-life fade. The top stack uses the **same Y positions / gaps** as
+the title's RAINBOW RUN / BEST / CRYSTALS row:
 
-- **RUN OVER**
+- **RUN OVER** — same rainbow lettering and size as the title **"RAINBOW RUN"**
 - This-run **distance** (m)
 - This-run **crystals**
-- **"NEW BEST!"** if `distance > best`
-- **TAP TO CONTINUE** (larger). Any click / tap / key returns to title
+- **"NEW BEST!"** if `distance > best` (same plate gap under crystals)
+- **TAP TO CONTINUE** (larger, low on the screen). Any click / tap / key returns to title
 
 ### Audio
 
@@ -443,8 +450,8 @@ Locked decisions are in §2–§3. Remaining knobs are **tune in play** unless n
   (80 / 120 / 550 ms). DEV F3 tuner; lock numbers here after playtest.
 - Lane-lerp ms.
 - Obstacle sizes, telegraph distance, density vs `s`.
-- Crystal value baseline and spawn density (magnet is lane-reach, already locked).
-- Shop prices and per-rank amounts; powerup spawn rates; Start speed vs cap.
+- Crystal spawn density (value is 1; magnet is lane-reach, already locked).
+- Powerup spawn rates; Start speed vs cap. Shop **prices** above are the current playtest set.
 - Unicorn proportions (long face, horn size, leg length) — iterate on the first mesh.
 - Camera: FOV, follow distance, height; how much road-ahead at start vs high speed.
 - I-frame flash rate.
