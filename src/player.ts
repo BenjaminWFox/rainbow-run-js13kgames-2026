@@ -18,7 +18,7 @@ import {
   SWOOP_TIME,
 } from './constants';
 import { playHit, playHorn, playNova } from './music';
-import { canCancelJump, canCancelSlide, jumpBonus, startSpeedBonus } from './save';
+import { canCancelJump, canCancelSlide, healthRank, jumpBonus, startSpeedBonus } from './save';
 
 export let s = 0;
 export let lane = 0;
@@ -72,7 +72,7 @@ export function resetPlayer(): void {
   y = 0;
   vy = 0;
   slide = 0;
-  lives = LIVES;
+  lives = LIVES + healthRank();
   iframes = 0;
   runCrystals = 0;
   speed = SPEED_START + startSpeedBonus();

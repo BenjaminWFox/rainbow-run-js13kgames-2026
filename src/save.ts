@@ -1,20 +1,28 @@
 export const SHOP_NAMES = [
+  'SPEED',
+  'JUMP',
   'MAGNET',
-  'CRYSTAL VALUE',
-  'START SPEED',
-  'JUMP HEIGHT',
-  'CANCEL JUMP',
-  'CANCEL SLIDE',
   'SHIELD',
   'HEALTH',
   'WINGS',
+  'X-JUMP',
+  'X-SLIDE',
+];
+export const SHOP_FLAVOR = [
+  'Speed: Start out faster!',
+  'Jump: Jump higher and higher!',
+  'Magnet: Picks up crystals from farther away!',
+  'Shield: Increase chance to find shields, prevent a collision!',
+  'Health: Increase chance to find hearts, start with +1 life!',
+  'Wings: Increase chance to find wings, save you from falling!',
+  'X-Jump: Slide while jumping to land early!',
+  'X-Slide: Jump while sliding to stand early!',
 ];
 export const SHOP_ROWS = SHOP_NAMES.length;
-export const SHOP_CAPS = [3, 3, 3, 3, 1, 1, 3, 3, 3];
-export const SHOP_CAP = 3;
-export const SHOP_PRICES = [6, 14, 24];
+export const SHOP_CAPS = [3, 3, 3, 3, 3, 3, 1, 1];
+export const SHOP_PRICES = [250, 250, 499, 499, 499, 499, 999, 999];
 
-export const shopRanks = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+export const shopRanks = [0, 0, 0, 0, 0, 0, 0, 0];
 export let banked = 0;
 export let best = 0;
 export let muted = false;
@@ -31,14 +39,27 @@ export function loadSave(): void {
     if (!raw) {
       return;
     }
-    const data = JSON.parse(raw) as { c?: number; b?: number; r?: number[]; m?: boolean };
+    const data = JSON.parse(raw) as {
+      c?: number;
+      b?: number;
+      r?: number[];
+      m?: boolean;
+      v?: number;
+    };
     banked = (data.c ?? 0) | 0;
     best = (data.b ?? 0) | 0;
     muted = !!data.m;
     const ranks = data.r;
     if (Array.isArray(ranks)) {
+      const src: number[] = [];
+      const skipValue = ranks.length !== SHOP_ROWS;
       for (let i = 0; i < SHOP_ROWS; i++) {
-        shopRanks[i] = Math.max(0, Math.min(SHOP_CAPS[i], (ranks[i] ?? 0) | 0));
+        src[i] = (ranks[skipValue && i > 0 ? i + 1 : i] ?? 0) | 0;
+      }
+      const to = data.v === 2 ? null : [2, 0, 1, 6, 7, 3, 4, 5];
+      for (let i = 0; i < SHOP_ROWS; i++) {
+        const dest = to ? to[i] : i;
+        shopRanks[dest] = Math.max(0, Math.min(SHOP_CAPS[dest], src[i]));
       }
     }
   } catch {
@@ -47,7 +68,7 @@ export function loadSave(): void {
 }
 
 export function saveGame(): void {
-  localStorage.setItem(KEY, JSON.stringify({ c: banked, b: best, r: shopRanks, m: muted }));
+  localStorage.setItem(KEY, JSON.stringify({ c: banked, b: best, r: shopRanks, m: muted, v: 2 }));
 }
 
 export function setMuted(value: boolean): void {
@@ -70,15 +91,10 @@ export function noteBest(distance: number): boolean {
 }
 
 export function shopPrice(row: number): number {
-  const rank = shopRanks[row];
-  const cap = SHOP_CAPS[row];
-  if (rank >= cap) {
+  if (shopRanks[row] >= SHOP_CAPS[row]) {
     return 0;
   }
-  if (cap === 1) {
-    return 10;
-  }
-  return SHOP_PRICES[rank];
+  return SHOP_PRICES[row];
 }
 
 export function tryBuy(row: number): boolean {
@@ -92,39 +108,35 @@ export function tryBuy(row: number): boolean {
   return true;
 }
 
-/** 0 = off, 1 = current lane, 2 = adjacent, 3 = all lanes. */
-export function magnetReach(): number {
-  return shopRanks[0];
-}
-
-export function crystalValue(): number {
-  return 1 + shopRanks[1];
-}
-
 export function startSpeedBonus(): number {
-  return shopRanks[2] * 1.6;
+  return shopRanks[0] * 1.6;
 }
 
 export function jumpBonus(): number {
-  return 1 + 0.12 * shopRanks[3];
+  return 1 + 0.12 * shopRanks[1];
 }
 
-export function canCancelJump(): boolean {
-  return shopRanks[4] > 0;
-}
-
-export function canCancelSlide(): boolean {
-  return shopRanks[5] > 0;
+/** 0 = off, 1 = current lane, 2 = adjacent, 3 = all lanes. */
+export function magnetReach(): number {
+  return shopRanks[2];
 }
 
 export function shieldRank(): number {
-  return shopRanks[6];
+  return shopRanks[3];
 }
 
 export function healthRank(): number {
-  return shopRanks[7];
+  return shopRanks[4];
 }
 
 export function wingsRank(): number {
-  return shopRanks[8];
+  return shopRanks[5];
+}
+
+export function canCancelJump(): boolean {
+  return shopRanks[6] > 0;
+}
+
+export function canCancelSlide(): boolean {
+  return shopRanks[7] > 0;
 }

@@ -19,7 +19,7 @@ import {
   speed,
   y,
 } from './player';
-import { crystalValue, healthRank, magnetReach, shieldRank, wingsRank } from './save';
+import { healthRank, magnetReach, shieldRank, wingsRank } from './save';
 
 export const OBS_LOW = 0;
 export const OBS_HIGH = 1;
@@ -286,7 +286,6 @@ function magnet(dt: number): void {
     return;
   }
   const reach = magnetReach();
-  const value = crystalValue();
   const span = reach === 1 ? 0 : reach === 2 ? 1 : reach === 3 ? 2 : -1;
   const catchR = 1.15 + speed * 0.1;
   const aimS = s + speed * 0.12;
@@ -299,7 +298,7 @@ function magnet(dt: number): void {
     const dy = c.y - (y + 0.5);
     if (Math.hypot(dx, ds, dy) < 0.85) {
       c.dead = 1;
-      addCrystals(value);
+      addCrystals(1);
       playCrystal();
       continue;
     }
@@ -312,7 +311,7 @@ function magnet(dt: number): void {
     }
     if (Math.hypot(dx, ds) < catchR) {
       c.dead = 1;
-      addCrystals(value);
+      addCrystals(1);
       playCrystal();
       continue;
     }

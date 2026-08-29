@@ -8,6 +8,7 @@ import {
   best,
   muted,
   noteBest,
+  SHOP_FLAVOR,
   SHOP_NAMES,
   SHOP_ROWS,
   shopCap,
@@ -29,6 +30,7 @@ export let cssW = 1;
 export let cssH = 1;
 
 let focus = 0;
+let shopSel = 0;
 let newBest = false;
 let lastDist = 0;
 let lastGems = 0;
@@ -42,6 +44,7 @@ type Btn = { x: number; y: number; w: number; h: number; label: string; id: numb
 
 const btns: Btn[] = [];
 let pauseBtn: Btn = { x: 16, y: 16, w: 52, h: 40, label: '', id: -1 };
+let flavorBox = { x: 0, y: 0, w: 0, h: 0 };
 
 export function setViewSize(w: number, h: number): void {
   cssW = w;
@@ -128,6 +131,41 @@ function rainbowTitle(ctx: CanvasRenderingContext2D, text: string, y: number, si
   }
 }
 
+function drawFlavor(ctx: CanvasRenderingContext2D, text: string): void {
+  const { x, y, w, h } = flavorBox;
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  roundRect(ctx, x, y, w, h, 10);
+  ctx.fill();
+  if (!text) {
+    return;
+  }
+  ctx.font = '600 15px ' + FONT;
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const maxW = w - 24;
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let line = '';
+  for (const word of words) {
+    const next = line ? line + ' ' + word : word;
+    if (line && ctx.measureText(next).width > maxW) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) {
+    lines.push(line);
+  }
+  const lineH = 20;
+  const y0 = y + h * 0.5 - ((lines.length - 1) * lineH) * 0.5;
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], x + w * 0.5, y0 + i * lineH);
+  }
+}
+
 function addBtn(x: number, y: number, w: number, h: number, label: string, id: number): void {
   btns.push({ x, y, w, h, label, id });
 }
@@ -164,10 +202,19 @@ function layout(): void {
     const rowH = 44;
     const left = cx - colW - gap * 0.5;
     const top = cssH * 0.24;
+    const rows = (SHOP_ROWS + 1) >> 1;
     for (let i = 0; i < SHOP_ROWS; i++) {
       addBtn(left + (i & 1) * (colW + gap), top + (i >> 1) * (rowH + 8), colW, rowH, SHOP_NAMES[i], i);
     }
-    addBtn(cx - bw * 0.5, top + ((SHOP_ROWS + 1) >> 1) * (rowH + 8) + 4, bw, bh, 'BACK', 20);
+    flavorBox = {
+      x: left,
+      y: top + rows * (rowH + 8) + 2,
+      w: colW * 2 + gap,
+      h: 64,
+    };
+    const footY = flavorBox.y + flavorBox.h + 10;
+    addBtn(left, footY, colW, bh, 'BACK', 20);
+    addBtn(left + colW + gap, footY, colW, bh, 'BUY', 21);
   }
   pauseBtn = { x: 14, y: 12, w: 48, h: 40, label: '', id: -1 };
 }
@@ -186,7 +233,7 @@ function drawBtn(ctx: CanvasRenderingContext2D, b: Btn, selected: boolean): void
       ? 28
       : b.label === 'UPGRADES' || b.label.startsWith('SOUND')
         ? 18
-        : scene === SCENE_SHOP
+        : scene === SCENE_SHOP && b.id < SHOP_ROWS
           ? 15
           : 22) +
     'px ' +
@@ -198,7 +245,7 @@ function drawBtn(ctx: CanvasRenderingContext2D, b: Btn, selected: boolean): void
     const rank = shopRanks[b.id];
     const cap = shopCap(b.id);
     const price = shopPrice(b.id);
-    label = b.label + '  ' + rank + '/' + cap + (rank >= cap ? '  MAX' : '  ' + price);
+    label = b.label + '  ' + rank + '/' + cap + (rank >= cap ? '' : '  ' + price);
   }
   ctx.fillText(label, b.x + b.w * 0.5, b.y + b.h * 0.5);
 }
@@ -242,6 +289,7 @@ function activate(id: number): void {
     } else if (id === 1) {
       scene = SCENE_SHOP;
       focus = 0;
+      shopSel = 0;
     } else if (id === 2) {
       setMuted(!muted);
       applyMute();
@@ -257,12 +305,16 @@ function activate(id: number): void {
     return;
   }
   if (scene === SCENE_SHOP) {
+    if (id < SHOP_ROWS) {
+      shopSel = id;
+      return;
+    }
     if (id === 20) {
       scene = SCENE_TITLE;
       focus = 0;
       return;
     }
-    if (tryBuy(id)) {
+    if (id === 21 && tryBuy(shopSel)) {
       playPowerup();
     }
   }
@@ -325,6 +377,9 @@ export function handleMenuKey(code: string): void {
         focus++;
       }
     }
+    if (focus < SHOP_ROWS) {
+      shopSel = focus;
+    }
   } else if (code === 'ArrowDown' || code === 'KeyS') {
     focus = (focus + 1) % btns.length;
   } else if (code === 'ArrowUp' || code === 'KeyW') {
@@ -372,8 +427,9 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
   }
 
   if (scene === SCENE_SHOP) {
-    plate(ctx, 'UPGRADES', cssW * 0.5, cssH * 0.14, 32, 'center');
-    plate(ctx, 'CRYSTALS  ' + banked, cssW * 0.5, cssH * 0.2, 20, 'center', '#7ef');
+    plate(ctx, 'UPGRADES', cssW * 0.5, cssH * 0.14 - 20, 32, 'center');
+    plate(ctx, 'CRYSTALS  ' + banked, cssW * 0.5, cssH * 0.2 - 10, 20, 'center', '#7ef');
+    drawFlavor(ctx, SHOP_FLAVOR[shopSel]);
   }
 
   if (scene === SCENE_PAUSE) {
@@ -398,7 +454,10 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
 
   if (scene !== SCENE_RUN && scene !== SCENE_DEATH) {
     for (let i = 0; i < btns.length; i++) {
-      drawBtn(ctx, btns[i], i === focus);
+      const b = btns[i];
+      const on =
+        scene === SCENE_SHOP && b.id < SHOP_ROWS ? b.id === shopSel : i === focus;
+      drawBtn(ctx, b, on);
     }
   }
 }
