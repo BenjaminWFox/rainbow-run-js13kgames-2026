@@ -15,7 +15,7 @@ import {
   SPEED_START,
   SWOOP_TIME,
 } from './constants';
-import { playHit, playHorn, playNova } from './music';
+import { playFall, playHit, playJump, playLane, playSlide, playWingSave } from './music';
 import { canCancelJump, canCancelSlide, healthRank, jumpBonus, startSpeedBonus } from './save';
 
 export let s = 0;
@@ -103,6 +103,7 @@ export function tryLane(dir: number): void {
     return;
   }
   lane = next;
+  playLane();
 }
 
 export function tryJump(): void {
@@ -140,7 +141,7 @@ export function trySlide(): void {
     return;
   }
   if (slide <= 0) {
-    playNova();
+    playSlide();
   }
   slide = SLIDE_TIME;
 }
@@ -170,19 +171,22 @@ export function hit(fell: boolean): void {
   if (fell && wings > 0) {
     wings = 0;
     swoop = SWOOP_TIME;
-    playNova();
+    iframes = SWOOP_TIME;
+    playWingSave();
     return;
   }
   if (!fell && shield > 0) {
     shield = 0;
-    iframes = 0.55;
+    iframes = IFRAMES;
     playHit();
     return;
   }
   lives--;
-  playHit();
   if (fell) {
+    playFall();
     falling = FALL_TIME;
+  } else {
+    playHit();
   }
   if (lives <= 0) {
     dying = DEATH_HOLD;
@@ -264,10 +268,10 @@ export function updatePlayer(dt: number): void {
     jumpBuf = 0;
     slideBuf = 0;
     slide = 0;
-    playHorn();
+    playJump();
   } else if (slideBuf > 0 && coyote > 0) {
     if (slide <= 0) {
-      playNova();
+      playSlide();
     }
     slide = SLIDE_TIME;
     slideBuf = 0;
@@ -282,7 +286,7 @@ export function updatePlayer(dt: number): void {
       dropJump = 0;
       if (slideBuf > 0) {
         if (slide <= 0) {
-          playNova();
+          playSlide();
         }
         slide = SLIDE_TIME;
         slideBuf = 0;

@@ -1,4 +1,14 @@
-import pack, { ENEMY_HIT, expandSfx, HORN_ATTACK, NOVA_FIRE, PICKUP, POWERUP } from './pickup-sfx';
+import pack, {
+  ENEMY_HIT,
+  expandSfx,
+  FALL,
+  JUMP,
+  LANE,
+  PICKUP,
+  POWERUP,
+  SLIDE,
+  WINGSAVE,
+} from './pickup-sfx';
 import { muted } from './save';
 import song, { CPlayer } from './smallplayer';
 
@@ -23,11 +33,25 @@ const sfxPlayers = pack.map((entry) => {
 });
 
 let ctx: AudioContext | undefined;
-let gain: GainNode | undefined;
+let musicGain: GainNode | undefined;
+let sfxGain: GainNode | undefined;
+let src: AudioBufferSourceNode | undefined;
 const sfxBufs: (AudioBuffer | undefined)[] = [];
 let progress = 0;
 let pumping = false;
 let playing = false;
+let runTime = 0;
+
+function musicRate(): number {
+  // 100 / 112 / 126 / 141 / 150 BPM (0, +2, +4, +6, +7 semitones)
+  return 2 ** ([0, 2, 4, 6, 7][Math.min(4, (runTime / 15) | 0)] / 12);
+}
+
+function applyRate(): void {
+  if (src) {
+    src.playbackRate.value = musicRate();
+  }
+}
 
 function pump(): void {
   if (pumping) {
@@ -45,10 +69,11 @@ function pump(): void {
       return;
     }
     playing = true;
-    const src = ctx.createBufferSource();
+    src = ctx.createBufferSource();
     src.buffer = player.createAudioBuffer(ctx);
     src.loop = true;
-    src.connect(gain as GainNode);
+    applyRate();
+    src.connect(musicGain as GainNode);
     src.start();
     applyMute();
   };
@@ -58,8 +83,10 @@ function pump(): void {
 function audio(): AudioContext {
   if (!ctx) {
     ctx = new AudioContext();
-    gain = ctx.createGain();
-    gain.connect(ctx.destination);
+    musicGain = ctx.createGain();
+    sfxGain = ctx.createGain();
+    musicGain.connect(ctx.destination);
+    sfxGain.connect(ctx.destination);
   }
   ctx.resume();
   applyMute();
@@ -71,7 +98,7 @@ function play(): void {
   pump();
 }
 
-function playSfx(id: number): void {
+function playSfx(id: number, vol = 1): void {
   if (muted) {
     return;
   }
@@ -79,14 +106,32 @@ function playSfx(id: number): void {
   sfxBufs[id] ||= sfxPlayers[id].createAudioBuffer(ac);
   const src = ac.createBufferSource();
   src.buffer = sfxBufs[id];
-  src.connect(gain as GainNode);
+  if (vol !== 1) {
+    const g = ac.createGain();
+    g.gain.value = vol;
+    src.connect(g).connect(sfxGain as GainNode);
+  } else {
+    src.connect(sfxGain as GainNode);
+  }
   src.start();
 }
 
 export function applyMute(): void {
-  if (gain) {
-    gain.gain.value = muted ? 0 : 1;
+  if (musicGain) {
+    musicGain.gain.value = muted ? 0 : 0.25;
   }
+  if (sfxGain) {
+    sfxGain.gain.value = muted ? 0 : 1.25;
+  }
+}
+
+export function syncMusic(running: boolean, paused: boolean, dt: number): void {
+  if (running) {
+    runTime += dt;
+  } else if (!paused) {
+    runTime = 0;
+  }
+  applyRate();
 }
 
 export function playCrystal(): void {
@@ -97,16 +142,28 @@ export function playPowerup(): void {
   playSfx(POWERUP);
 }
 
-export function playNova(): void {
-  playSfx(NOVA_FIRE);
+export function playSlide(): void {
+  playSfx(SLIDE);
 }
 
 export function playHit(): void {
-  playSfx(ENEMY_HIT);
+  playSfx(ENEMY_HIT, 2);
 }
 
-export function playHorn(): void {
-  playSfx(HORN_ATTACK);
+export function playJump(): void {
+  playSfx(JUMP);
+}
+
+export function playLane(): void {
+  playSfx(LANE);
+}
+
+export function playFall(): void {
+  playSfx(FALL);
+}
+
+export function playWingSave(): void {
+  playSfx(WINGSAVE);
 }
 
 export function initMusic(): void {

@@ -155,6 +155,9 @@ function spawnDrop(at: number, mask: number): void {
   if (rand() > 0.06 + 0.05 * rank) {
     return;
   }
+  if (kind === DROP_HEART && rand() < 0.5) {
+    return;
+  }
   const lane = open[(rand() * open.length) | 0];
   drops.push({ s: at + 4, x: lane * LANE_W, y: 0.7, kind, dead: 0 });
 }
@@ -310,7 +313,7 @@ function collide(): void {
     return;
   }
   const i = overlapAt();
-  if (iframes > 0) {
+  if (iframes > 0 || offTrack()) {
     pass = i >= 0;
     return;
   }
@@ -326,6 +329,7 @@ function collide(): void {
   explode(obstacles[i]);
   obstacles.splice(i, 1);
   hit(false);
+  pass = true;
 }
 
 function magnet(dt: number): void {

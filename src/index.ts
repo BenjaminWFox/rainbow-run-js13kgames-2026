@@ -22,7 +22,7 @@ import {
   wasPressed,
 } from './input';
 import { lookAt, mat4 } from './math';
-import { initMusic } from './music';
+import { initMusic, syncMusic } from './music';
 import { pathFrame, pathT } from './path';
 import {
   dying,
@@ -219,6 +219,7 @@ function frame(now: number): void {
     }
   }
   onMenu = menu;
+  syncMusic(scene === SCENE_RUN, scene === SCENE_PAUSE, dt);
 
   debug?.frame();
   renderWorld();

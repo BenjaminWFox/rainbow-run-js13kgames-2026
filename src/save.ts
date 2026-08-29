@@ -20,7 +20,7 @@ export const SHOP_FLAVOR = [
 ];
 export const SHOP_ROWS = SHOP_NAMES.length;
 export const SHOP_CAPS = [3, 3, 3, 3, 3, 3, 1, 1];
-export const SHOP_PRICES = [250, 250, 499, 499, 499, 499, 999, 999];
+export const SHOP_PRICES = [125, 125, 250, 250, 250, 250, 499, 499];
 
 export const shopRanks = [0, 0, 0, 0, 0, 0, 0, 0];
 export let banked = 0;

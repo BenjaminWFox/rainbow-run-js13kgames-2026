@@ -1,13 +1,16 @@
-// SFX pack exported by Voxby. Each entry is [patternLen, instrument].
-// rowLen 2646 and note [147] are shared across the Dye Hard pack.
+// SFX pack exported by Voxby. Each entry is [patternLen, instrument, rowLen?].
+// Note [147] is shared. rowLen defaults to 2646.
 
 export const PICKUP = 0;
 export const POWERUP = 1;
-export const NOVA_FIRE = 2;
+export const SLIDE = 2;
 export const ENEMY_HIT = 3;
-export const HORN_ATTACK = 4;
+export const JUMP = 4;
+export const LANE = 5;
+export const FALL = 6;
+export const WINGSAVE = 7;
 
-export type SfxEntry = [number, number[]];
+export type SfxEntry = [number, number[], number?];
 
 const pack: SfxEntry[] = [
   /* PICKUP */ [
@@ -24,26 +27,49 @@ const pack: SfxEntry[] = [
       0, 0, 119, 1,
     ],
   ],
-  /* NOVA_FIRE */ [
-    18,
+  /* SLIDE */ [
+    19,
     [
-      0, 244, 95, 124, 0, 59, 97, 0, 154, 2, 0, 20, 105, 71, 0, 0, 0, 0, 0, 0, 2, 58, 62, 0, 43, 0,
-      0, 0, 0,
+      0, 176, 105, 0, 0, 0, 96, 44, 0, 134, 45, 62, 34, 0, 0, 0, 0, 0, 0, 0, 2, 53, 42, 0, 21, 0, 3,
+      36, 4,
     ],
   ],
   /* ENEMY_HIT */ [
     6,
     [
-      2, 194, 115, 160, 2, 120, 115, 103, 110, 113, 0, 12, 60, 35, 0, 0, 0, 0, 0, 0, 3, 102, 88, 1,
-      45, 0, 0, 0, 0,
+      2, 167, 109, 76, 1, 111, 119, 72, 80, 107, 0, 15, 61, 24, 0, 0, 0, 0, 0, 0, 2, 174, 243, 49,
+      255, 0, 0, 0, 0,
     ],
   ],
-  /* HORN_ATTACK */ [
+  /* JUMP */ [
     7,
     [
-      1, 174, 112, 74, 2, 156, 113, 105, 52, 97, 0, 16, 61, 21, 0, 0, 0, 0, 0, 0, 2, 111, 94, 11,
-      44, 0, 0, 0, 0,
+      3, 208, 134, 60, 0, 0, 128, 0, 0, 0, 32, 6, 23, 17, 0, 0, 0, 0, 0, 0, 2, 166, 35, 13, 47, 0, 0,
+      13, 2,
     ],
+  ],
+  /* LANE */ [
+    3,
+    [
+      3, 237, 106, 156, 0, 0, 106, 0, 0, 98, 22, 18, 30, 1, 0, 0, 0, 0, 0, 0, 2, 37, 71, 1, 36, 0,
+      0, 0, 0,
+    ],
+  ],
+  /* FALL */ [
+    28,
+    [
+      0, 121, 97, 0, 0, 0, 101, 0, 0, 185, 0, 29, 160, 24, 0, 0, 0, 195, 1, 1, 2, 30, 236, 7, 77, 0,
+      0, 0, 0,
+    ],
+    3793,
+  ],
+  /* WINGSAVE */ [
+    36,
+    [
+      0, 121, 97, 62, 0, 0, 108, 0, 0, 121, 176, 29, 45, 24, 0, 0, 0, 195, 1, 1, 2, 30, 199, 40, 77,
+      0, 0, 0, 0,
+    ],
+    3793,
   ],
 ];
 
@@ -52,7 +78,7 @@ export default pack;
 export function expandSfx(entry: SfxEntry) {
   return {
     songData: [{ i: entry[1], p: [1], c: [{ n: [147], f: [] }] }],
-    rowLen: 2646,
+    rowLen: entry[2] || 2646,
     patternLen: entry[0],
     endPattern: 0,
     numChannels: 1,

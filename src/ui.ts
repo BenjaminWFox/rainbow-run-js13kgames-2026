@@ -384,7 +384,14 @@ export function handleMenuKey(code: string): void {
   } else if (code === 'ArrowUp' || code === 'KeyW') {
     focus = (focus + btns.length - 1) % btns.length;
   }
-  if (code === 'Enter' || code === 'Space') {
+  if (code === 'Enter' && scene === SCENE_SHOP) {
+    const id = btns[focus].id;
+    if (id === 20) {
+      activate(id);
+    } else if (tryBuy(shopSel)) {
+      playPowerup();
+    }
+  } else if (code === 'Enter' || code === 'Space') {
     activate(btns[focus].id);
   } else if (code === 'Escape' && (scene === SCENE_SHOP || scene === SCENE_PAUSE)) {
     if (scene === SCENE_PAUSE) {
