@@ -4,10 +4,13 @@ import { mat4, mul, perspective, trs } from './math';
 let gl: WebGLRenderingContext;
 let uMvp: WebGLUniformLocation;
 let uColor: WebGLUniformLocation;
+let uAlpha: WebGLUniformLocation;
 let aLoc: number;
+let drawA = 1;
 let boxBuf: WebGLBuffer;
 let pyrBuf: WebGLBuffer;
 let octBuf: WebGLBuffer;
+let dynBuf: WebGLBuffer;
 const mvp = mat4();
 const proj = mat4();
 const model = mat4();
@@ -94,7 +97,7 @@ export function initGl(canvas: HTMLCanvasElement): void {
   );
   const fs = compile(
     gl.FRAGMENT_SHADER,
-    'precision mediump float;uniform vec3 c;void main(){gl_FragColor=vec4(c,1.0);}'
+    'precision mediump float;uniform vec3 c;uniform float o;void main(){gl_FragColor=vec4(c,o);}'
   );
   const prog = gl.createProgram() as WebGLProgram;
   gl.attachShader(prog, vs);
@@ -103,12 +106,21 @@ export function initGl(canvas: HTMLCanvasElement): void {
   gl.useProgram(prog);
   uMvp = gl.getUniformLocation(prog, 'm') as WebGLUniformLocation;
   uColor = gl.getUniformLocation(prog, 'c') as WebGLUniformLocation;
+  uAlpha = gl.getUniformLocation(prog, 'o') as WebGLUniformLocation;
   aLoc = gl.getAttribLocation(prog, 'a');
   gl.enableVertexAttribArray(aLoc);
   boxBuf = mesh(boxVerts());
   pyrBuf = mesh(pyrVerts());
   octBuf = mesh(octVerts());
+  dynBuf = gl.createBuffer() as WebGLBuffer;
   gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.uniform1f(uAlpha, 1);
+}
+
+export function setDrawAlpha(a: number): void {
+  drawA = a;
 }
 
 export function resizeGl(w: number, h: number): void {
@@ -150,6 +162,7 @@ function drawPrim(
   mul(mvp, proj, tmp);
   gl.uniformMatrix4fv(uMvp, false, mvp);
   gl.uniform3f(uColor, r, g, b);
+  gl.uniform1f(uAlpha, drawA);
   bind(buf);
   gl.drawArrays(gl.TRIANGLES, 0, count);
 }
@@ -203,4 +216,26 @@ export function drawOct(
   b: number
 ): void {
   drawPrim(octBuf, 24, view, x, y, z, rx, ry, sx, sy, sz, r, g, b);
+}
+
+/** World-space triangle list (road strips). */
+export function drawTris(
+  view: Float32Array,
+  verts: number[],
+  r: number,
+  g: number,
+  b: number
+): void {
+  const count = (verts.length / 3) | 0;
+  if (count < 3) {
+    return;
+  }
+  mul(mvp, proj, view);
+  gl.uniformMatrix4fv(uMvp, false, mvp);
+  gl.uniform3f(uColor, r, g, b);
+  gl.uniform1f(uAlpha, drawA);
+  gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.DYNAMIC_DRAW);
+  gl.vertexAttribPointer(aLoc, 3, gl.FLOAT, false, 0, 0);
+  gl.drawArrays(gl.TRIANGLES, 0, count);
 }

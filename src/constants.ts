@@ -10,6 +10,11 @@ export const SPEED_START = 7;
 export const SPEED_CAP = 18;
 export const SPEED_RAMP = 0.04;
 
+/** Circular-arc path: start gentle, tighten with distance. */
+export const ARC_R0 = 50;
+export const ARC_R_MIN = 18;
+export const ARC_TIGHTEN = 0.032;
+
 export const GRAVITY = 38;
 export const JUMP_VEL = 11;
 export const COYOTE = 0.08;
@@ -19,6 +24,8 @@ export const LANE_SNAP = 14;
 
 export const IFRAMES = 2;
 export const LIVES = 3;
+export const FALL_TIME = 1.15;
+export const DEATH_HOLD = 0.52;
 
 export const CAM_FOV = 1.05;
 export const CAM_BACK = 7.2;

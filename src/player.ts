@@ -1,5 +1,7 @@
 import {
   COYOTE,
+  DEATH_HOLD,
+  FALL_TIME,
   GRAVITY,
   HIT_H,
   HIT_H_SLIDE,
@@ -27,6 +29,8 @@ export let lives = LIVES;
 export let iframes = 0;
 export let runCrystals = 0;
 export let speed = SPEED_START;
+export let dying = 0;
+export let falling = 0;
 
 export function addCrystals(n: number): void {
   runCrystals += n;
@@ -35,6 +39,22 @@ export function addCrystals(n: number): void {
 let coyote = 0;
 let jumpBuf = 0;
 let splay = 0;
+let dropJump = 0;
+let fallDir = 0;
+let fallX = 0;
+let fallY = 0;
+
+export function visLaneX(): number {
+  return laneX + fallX;
+}
+
+export function visY(): number {
+  return y - fallY;
+}
+
+export function inputLocked(): boolean {
+  return falling > 0 || dying > 0;
+}
 
 export function resetPlayer(): void {
   s = 0;
@@ -50,6 +70,12 @@ export function resetPlayer(): void {
   coyote = 0;
   jumpBuf = 0;
   splay = 0;
+  dropJump = 0;
+  dying = 0;
+  falling = 0;
+  fallDir = 0;
+  fallX = 0;
+  fallY = 0;
 }
 
 export function hitboxH(): number {
@@ -61,9 +87,13 @@ export function poseSplay(): number {
 }
 
 export function tryLane(dir: number): void {
+  if (inputLocked()) {
+    return;
+  }
   const next = lane + dir;
   if (next < -1 || next > 1) {
     if (iframes <= 0) {
+      fallDir = dir;
       hit(true);
     }
     return;
@@ -72,27 +102,48 @@ export function tryLane(dir: number): void {
 }
 
 export function tryJump(): void {
+  if (inputLocked()) {
+    return;
+  }
+  if (slide > 0) {
+    slide = 0;
+    return;
+  }
   jumpBuf = JUMP_BUF;
 }
 
 export function trySlide(): void {
-  if (y <= 0.02) {
-    if (slide <= 0) {
-      playNova();
-    }
-    slide = SLIDE_TIME;
+  if (inputLocked()) {
+    return;
   }
+  jumpBuf = 0;
+  if (y > 0.02 || vy > 0) {
+    if (vy > -12) {
+      vy = -12;
+    }
+    dropJump = 1;
+    return;
+  }
+  if (slide <= 0) {
+    playNova();
+  }
+  slide = SLIDE_TIME;
 }
 
 export function hit(fell: boolean): void {
-  if (iframes > 0) {
+  if (iframes > 0 || dying > 0) {
     return;
   }
   lives--;
-  iframes = IFRAMES;
   playHit();
   if (fell) {
-    lane = 0;
+    falling = FALL_TIME;
+  }
+  if (lives <= 0) {
+    dying = DEATH_HOLD;
+    iframes = 0;
+  } else {
+    iframes = IFRAMES;
   }
 }
 
@@ -102,6 +153,37 @@ export function updatePlayer(dt: number): void {
     SPEED_START + startSpeedBonus() + s * SPEED_RAMP
   );
   s += speed * dt;
+
+  if (falling > 0 || (dying > 0 && fallY > 0)) {
+    fallX += fallDir * 8 * dt;
+    fallY += (14 + fallY * 3.2) * dt;
+  }
+  if (falling > 0) {
+    falling -= dt;
+    if (falling <= 0) {
+      falling = 0;
+      if (dying <= 0) {
+        fallX = 0;
+        fallY = 0;
+        lane = 0;
+        laneX = 0;
+        y = 0;
+        vy = 0;
+      }
+    }
+  }
+
+  if (dying > 0) {
+    dying -= dt;
+  }
+
+  if (inputLocked()) {
+    jumpBuf = 0;
+    if (iframes > 0) {
+      iframes -= dt;
+    }
+    return;
+  }
 
   const target = lane * LANE_W;
   laneX += (target - laneX) * Math.min(1, LANE_SNAP * dt);
@@ -128,6 +210,7 @@ export function updatePlayer(dt: number): void {
     if (y <= 0) {
       y = 0;
       vy = 0;
+      dropJump = 0;
     }
   }
 
@@ -142,6 +225,6 @@ export function updatePlayer(dt: number): void {
     iframes -= dt;
   }
 
-  const want = slide > 0 || y > 0.08 ? 1 : 0;
-  splay += (want - splay) * Math.min(1, 12 * dt);
+  const want = slide > 0 || (y > 0.08 && !dropJump) ? 1 : 0;
+  splay += (want - splay) * Math.min(1, (dropJump ? 16 : 12) * dt);
 }

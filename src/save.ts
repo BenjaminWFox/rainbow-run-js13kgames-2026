@@ -73,9 +73,9 @@ export function tryBuy(row: number): boolean {
   return true;
 }
 
-export function magnetRadius(): number {
-  const rank = shopRanks[0];
-  return rank ? 1.4 * (1 + 0.45 * rank) : 0;
+/** 0 = off, 1 = current lane, 2 = adjacent, 3 = all lanes. */
+export function magnetReach(): number {
+  return shopRanks[0];
 }
 
 export function crystalValue(): number {

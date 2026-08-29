@@ -31,7 +31,7 @@ These rules govern how code is written for this project.
    costs are unintuitive post-compression; decisions between approaches should be settled by
    building both when practical.
 6. **Budget awareness.** Track the live number in [`SIZE_LOG.md`](SIZE_LOG.md).
-   **2026-08-28: advzip 7,171 B (53.87% of 13,312). Headroom 6,141 B.**
+   **2026-08-28: advzip 8,019 B (60.24% of 13,312). Headroom 5,293 B.**
    - WebGL1 engine (context, camera, matrices, resize/DPR): ~2–3 KB
    - Path + rainbow road mesh: ~1–1.5 KB
    - Unicorn mesh + run/jump/duck poses: ~1–1.5 KB
@@ -459,7 +459,7 @@ includes it before we add more game.
 | 6 | **Meta:** localStorage, mute, pause (P + button, Resume/Quit), shop rows, banked crystals on title | Capable | Persistence rules are precise; reuse the menu helper | ✅ |
 | 7 | **Audio drop-in:** Dye Hard SoundBox + 5 SFX, first mapping, SIZE_LOG snapshot | Capable | Byte reservation; must land before we believe any budget | ✅ |
 | 8 | **Poses + cheap extras:** belly-splay duck/jump pose; mane/tail only if the zip says yes | Capable | Visual identity; easy to cut | ✅ |
-| 9 | **Arcs:** circular-arc path, camera follows tangent, radius tightens with distance | Flagship | Same controls; new projector for `pointOnPath` / `normal` | |
+| 9 | **Arcs:** circular-arc path, camera follows tangent, radius tightens with distance | Flagship | Same controls; new projector for `pointOnPath` / `normal` | ✅ |
 | 10 | **Tune + ship:** §5 numbers, fallback ladder, golf | Flagship | Playtest judgment and Rule 5 | |
 
 Notes:
