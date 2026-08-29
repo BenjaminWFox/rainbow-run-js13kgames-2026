@@ -128,7 +128,7 @@ export function lookAt(
   return out;
 }
 
-/** model = T * Ry * Rx * S (column-major, post-multiply). */
+/** model = T * Ry * Rz * Rx * S (column-major, post-multiply). */
 export function trs(
   out: Float32Array,
   x: number,
@@ -138,23 +138,26 @@ export function trs(
   ry: number,
   sx: number,
   sy: number,
-  sz: number
+  sz: number,
+  rz = 0
 ): Float32Array {
   const cx = Math.cos(rx);
   const sxr = Math.sin(rx);
   const cy = Math.cos(ry);
   const syr = Math.sin(ry);
-  out[0] = cy * sx;
-  out[1] = 0;
-  out[2] = -syr * sx;
+  const cz = Math.cos(rz);
+  const szr = Math.sin(rz);
+  out[0] = cy * cz * sx;
+  out[1] = szr * sx;
+  out[2] = -syr * cz * sx;
   out[3] = 0;
-  out[4] = syr * sxr * sy;
-  out[5] = cx * sy;
-  out[6] = cy * sxr * sy;
+  out[4] = (-cy * szr * cx + syr * sxr) * sy;
+  out[5] = cz * cx * sy;
+  out[6] = (syr * szr * cx + cy * sxr) * sy;
   out[7] = 0;
-  out[8] = syr * cx * sz;
-  out[9] = -sxr * sz;
-  out[10] = cy * cx * sz;
+  out[8] = (cy * szr * sxr + syr * cx) * sz;
+  out[9] = -cz * sxr * sz;
+  out[10] = (-syr * szr * sxr + cy * cx) * sz;
   out[11] = 0;
   out[12] = x;
   out[13] = y;

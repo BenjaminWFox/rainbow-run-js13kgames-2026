@@ -1,17 +1,37 @@
 import { HIT_LEN, LANE_W, RAINBOW } from './constants';
-import { drawBox, drawOct } from './gl';
+import { drawBox, drawOct, setDepthWrite, setDrawAlpha } from './gl';
 import { rgb } from './math';
-import { playCrystal } from './music';
+import { playCrystal, playPowerup } from './music';
 import { resetPath, worldPos, yawAt } from './path';
-import { addCrystals, dying, hit, hitboxH, iframes, lane, laneX, offTrack, s, y } from './player';
-import { crystalValue, magnetReach } from './save';
+import {
+  addCrystals,
+  addLife,
+  dying,
+  grantShield,
+  grantWings,
+  hit,
+  hitboxH,
+  iframes,
+  lane,
+  laneX,
+  offTrack,
+  s,
+  speed,
+  y,
+} from './player';
+import { crystalValue, healthRank, magnetReach, shieldRank, wingsRank } from './save';
 
 export const OBS_LOW = 0;
 export const OBS_HIGH = 1;
 export const OBS_WALL = 2;
 
+export const DROP_SHIELD = 0;
+export const DROP_HEART = 1;
+export const DROP_WINGS = 2;
+
 type Obstacle = { s: number; lane: number; kind: number };
 type Crystal = { s: number; x: number; y: number; dead: number };
+type Drop = { s: number; x: number; y: number; kind: number; dead: number };
 type Burst = {
   s: number;
   x: number;
@@ -28,6 +48,7 @@ type Burst = {
 
 const obstacles: Obstacle[] = [];
 const crystals: Crystal[] = [];
+const drops: Drop[] = [];
 const bursts: Burst[] = [];
 const wp = [0, 0, 0];
 
@@ -40,6 +61,7 @@ export function burstCount(): number {
 export function resetWorld(): void {
   obstacles.length = 0;
   crystals.length = 0;
+  drops.length = 0;
   bursts.length = 0;
   nextS = 28;
   resetPath();
@@ -90,6 +112,39 @@ function spawnGroup(at: number): void {
       addLine(at + 2.2, lane, 3, 2.2, 0.55, 0);
     }
   }
+  spawnDrop(at, mask);
+}
+
+function spawnDrop(at: number, mask: number): void {
+  const open: number[] = [];
+  for (let lane = -1; lane <= 1; lane++) {
+    if (!(mask & (1 << (lane + 1)))) {
+      open.push(lane);
+    }
+  }
+  if (!open.length) {
+    open.push(0);
+  }
+  const pool: number[] = [];
+  if (shieldRank()) {
+    pool.push(DROP_SHIELD);
+  }
+  if (healthRank()) {
+    pool.push(DROP_HEART);
+  }
+  if (wingsRank()) {
+    pool.push(DROP_WINGS);
+  }
+  if (!pool.length) {
+    return;
+  }
+  const kind = pool[(rand() * pool.length) | 0];
+  const rank = kind === DROP_SHIELD ? shieldRank() : kind === DROP_HEART ? healthRank() : wingsRank();
+  if (rand() > 0.06 + 0.05 * rank) {
+    return;
+  }
+  const lane = open[(rand() * open.length) | 0];
+  drops.push({ s: at + 4, x: lane * LANE_W, y: 0.7, kind, dead: 0 });
 }
 
 function addLine(
@@ -129,6 +184,11 @@ export function updateWorld(dt: number): void {
       crystals.splice(i, 1);
     }
   }
+  for (let i = drops.length - 1; i >= 0; i--) {
+    if (drops[i].dead || drops[i].s < s - 12) {
+      drops.splice(i, 1);
+    }
+  }
   for (let i = bursts.length - 1; i >= 0; i--) {
     const b = bursts[i];
     b.s += b.vs * dt;
@@ -143,6 +203,30 @@ export function updateWorld(dt: number): void {
 
   collide();
   magnet(dt);
+  collectDrops();
+}
+
+function collectDrops(): void {
+  if (offTrack()) {
+    return;
+  }
+  for (const d of drops) {
+    if (d.dead) {
+      continue;
+    }
+    if (Math.hypot(d.x - laneX, d.s - s, d.y - (y + 0.5)) > 0.95) {
+      continue;
+    }
+    d.dead = 1;
+    playPowerup();
+    if (d.kind === DROP_SHIELD) {
+      grantShield();
+    } else if (d.kind === DROP_HEART) {
+      addLife();
+    } else {
+      grantWings();
+    }
+  }
 }
 
 function explode(o: Obstacle): void {
@@ -204,6 +288,8 @@ function magnet(dt: number): void {
   const reach = magnetReach();
   const value = crystalValue();
   const span = reach === 1 ? 0 : reach === 2 ? 1 : reach === 3 ? 2 : -1;
+  const catchR = 1.15 + speed * 0.1;
+  const aimS = s + speed * 0.12;
   for (const c of crystals) {
     if (c.dead) {
       continue;
@@ -211,8 +297,7 @@ function magnet(dt: number): void {
     const dx = c.x - laneX;
     const ds = c.s - s;
     const dy = c.y - (y + 0.5);
-    const dist = Math.hypot(dx, ds, dy);
-    if (dist < 0.85) {
+    if (Math.hypot(dx, ds, dy) < 0.85) {
       c.dead = 1;
       addCrystals(value);
       playCrystal();
@@ -225,7 +310,7 @@ function magnet(dt: number): void {
     if (Math.abs(cLane - lane) > span) {
       continue;
     }
-    if (Math.hypot(dx, ds) < 1.1) {
+    if (Math.hypot(dx, ds) < catchR) {
       c.dead = 1;
       addCrystals(value);
       playCrystal();
@@ -234,9 +319,9 @@ function magnet(dt: number): void {
     if (Math.abs(ds) > 4.5) {
       continue;
     }
-    const k = Math.min(1, 10 * dt);
+    const k = Math.min(1, 12 * dt);
     c.x -= dx * k;
-    c.s -= ds * k;
+    c.s -= (c.s - aimS) * k;
     c.y -= dy * k;
   }
 }
@@ -262,6 +347,39 @@ export function drawWorld(view: Float32Array): void {
     }
   }
   const spin = s * 2;
+  for (const d of drops) {
+    if (d.dead) {
+      continue;
+    }
+    const yaw = yawAt(d.s);
+    let br = 1;
+    let bg = 0.82;
+    let bb = 0.2;
+    if (d.kind === DROP_SHIELD) {
+      worldPos(d.s, d.x, d.y, wp);
+      drawOct(view, wp[0], wp[1], wp[2], 0.5, spin, 0.42, 0.42, 0.42, 1, 0.82, 0.2);
+    } else if (d.kind === DROP_HEART) {
+      br = 1;
+      bg = 0.35;
+      bb = 0.45;
+      worldPos(d.s, d.x, d.y, wp);
+      drawOct(view, wp[0], wp[1], wp[2], 0.2, spin, 0.36, 0.32, 0.36, br, bg, bb);
+    } else {
+      br = 0.72;
+      bg = 0.74;
+      bb = 0.8;
+      worldPos(d.s, d.x - 0.22, d.y, wp);
+      drawBox(view, wp[0], wp[1], wp[2], 0.5, yaw, 0.14, 0.1, 0.42, 0.62, 0.64, 0.7);
+      worldPos(d.s, d.x + 0.22, d.y, wp);
+      drawBox(view, wp[0], wp[1], wp[2], -0.5, yaw, 0.14, 0.1, 0.42, 0.62, 0.64, 0.7);
+      worldPos(d.s, d.x, d.y, wp);
+    }
+    setDepthWrite(false);
+    setDrawAlpha(0.2);
+    drawOct(view, wp[0], wp[1], wp[2], 0, spin * 0.4, 0.82, 0.82, 0.82, br, bg, bb);
+    setDrawAlpha(1);
+    setDepthWrite(true);
+  }
   for (const c of crystals) {
     if (c.dead) {
       continue;

@@ -28,6 +28,7 @@ import {
   dying,
   falling,
   iframes,
+  swoop,
   inputLocked,
   lives,
   poseSplay,
@@ -118,7 +119,12 @@ function renderWorld(): void {
   }
   const fading = dying > 0 || (lives <= 0 && scene !== SCENE_TITLE && scene !== SCENE_SHOP);
   const hide =
-    !fading && !falling && scene === SCENE_RUN && iframes > 0 && ((iframes * 8) | 0) % 2 === 0;
+    !fading &&
+    !falling &&
+    !swoop &&
+    scene === SCENE_RUN &&
+    iframes > 0 &&
+    ((iframes * 8) | 0) % 2 === 0;
   if (!hide) {
     const ux = scene === SCENE_TITLE || scene === SCENE_SHOP ? 0 : visLaneX();
     const uy = scene === SCENE_TITLE || scene === SCENE_SHOP ? 0 : visY();

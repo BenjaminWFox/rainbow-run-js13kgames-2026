@@ -72,7 +72,7 @@ These rules govern how code is written for this project.
     | Moving hazards | Extra update + spawn rules |
     | Temple-style L/T junctions | Dual-meaning left/right vs 3 lanes |
     | Landscape / sky props | Road + unicorn only to start |
-    | Shop extra lives | Base kit is already 3 lives |
+    | Shop extra lives at run start | Base kit is 3; on-track hearts are the v1 extra-life path |
 
 All timing in this spec is expressed in **real time** (seconds/milliseconds), never frames.
 
@@ -162,10 +162,11 @@ death screen (which ends the run).
 - **Duck / slide:** **fixed duration**, tap/press, **not** hold-to-stay-down.
   Starts at **550ms**. **Swipe down** or **arrow down / S**. Pose: unicorn
   **splayed on its belly**.
-- **Jump vs slide:** opposite gesture **cancels** the current pose — it does **not**
-  swap into the other action. Up while sliding stands up (then up again jumps). Down
-  while jumping fast-falls and unfolds to **run**. A **second** down while still
-  airborne queues a slide until you land (early slide). Last input wins.
+- **Jump vs slide:** opposite gesture **cancels** the current pose only after the
+  matching shop unlock (**Cancel Jump** / **Cancel Slide**). Without the unlock you
+  stay in the pose until it finishes. With Cancel Jump: down while jumping fast-falls
+  to **run**; a second down queues a slide until land. With Cancel Slide: up while
+  sliding stands up (then up again jumps).
 
 ### Speed and difficulty
 
@@ -197,14 +198,18 @@ a safe lane or a jump/duck that works). Fair telegraph before a hairpin.
 - **Banked on death or quit-to-menu.** Uncollected crystals on the road are lost.
 - HUD shows **this-run** count; title / shop show the **bank**.
 - Magnet (shop) pulls and collects by **lane reach**, not a growing radius (see Shop).
-  No pickup and no magnet pull while falling off the track.
+  Pull aims slightly ahead so gems cannot stall on the tail; catch radius grows with
+  speed. No pickup and no magnet pull while falling off the track.
+- **Track powerups** (shop-gated, spawn on open lanes; ranks raise rate): **Shield**
+  (yellow, 1 obstacle hit), **Heart** (extra life, no cap), **Wings** (1 fall).
+  Shield does not stop a fall; wings do not stop an obstacle.
 
 ### Fail states
 
 | Event | Result |
 |-------|--------|
-| Hit obstacle (no i-frames) | −1 life, barrier explodes, 2s i-frames, stay in current lane |
-| Outward swipe from outer lane (no i-frames) | −1 life, visible fall (no crystal collect), 2s i-frames, **respawn middle lane** |
+| Hit obstacle (no i-frames) | If **shield**: consume it, short i-frames, stay in lane. Else −1 life, barrier explodes, 2s i-frames |
+| Outward swipe from outer lane (no i-frames) | If **wings**: consume them, slide out, swoop up, land on the same outer lane, **2s i-frames**. Else −1 life, visible fall (no crystal collect), 2s i-frames, **respawn middle lane** |
 | Last life | Fade ~0.5s (run still scrolls) → death overlay → title |
 
 ### HUD (in-run)
@@ -262,19 +267,21 @@ save position, lives, or in-run crystals separately — those either bank at end
 
 ### Shop (Upgrades)
 
-Reachable from the title **Upgrades** button. Spend **banked crystals**. Each row **3
-ranks**. Prices and per-rank amounts TBD. **Not** in the shop: extra lives (base kit is
-already 3).
+Reachable from the title **Upgrades** button. Spend **banked crystals**. Most rows
+have **3 ranks** (placeholder prices 6 / 14 / 24). Cancel Jump and Cancel Slide are
+**1-rank** unlocks (10 crystals). Tune later.
 
-**Planned rows (v1):**
-
-| Row | 3 ranks |
-|-----|---------|
+| Row | Ranks |
+|-----|-------|
 | Magnet | **Lane reach:** (1) current lane, including above/below you; (2) adjacent lanes (center reaches both); (3) all three lanes |
 | Crystal value | More banked crystals per pickup |
 | Start speed | Faster at run start |
 | Jump height | Higher jump per rank |
-| Shield | Optional, not shipped. Cut first if the shop is fat. |
+| Cancel Jump | Unlock: down during a jump cancels to run |
+| Cancel Slide | Unlock: up during a slide stands up |
+| Shield | Track pickups; ranks raise spawn rate. 1 obstacle save. Yellow glow |
+| Health | Track hearts; ranks raise spawn rate. +1 life, no cap |
+| Wings | Track pickups; ranks raise spawn rate. 1 fall save (swoop back). Grey back wings |
 
 ### Death overlay
 
@@ -437,7 +444,7 @@ Locked decisions are in §2–§3. Remaining knobs are **tune in play** unless n
 - Lane-lerp ms.
 - Obstacle sizes, telegraph distance, density vs `s`.
 - Crystal value baseline and spawn density (magnet is lane-reach, already locked).
-- Shop prices and per-rank amounts; whether Shield ships; Start speed vs cap.
+- Shop prices and per-rank amounts; powerup spawn rates; Start speed vs cap.
 - Unicorn proportions (long face, horn size, leg length) — iterate on the first mesh.
 - Camera: FOV, follow distance, height; how much road-ahead at start vs high speed.
 - I-frame flash rate.

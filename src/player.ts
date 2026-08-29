@@ -15,9 +15,10 @@ import {
   SPEED_CAP,
   SPEED_RAMP,
   SPEED_START,
+  SWOOP_TIME,
 } from './constants';
 import { playHit, playHorn, playNova } from './music';
-import { jumpBonus, startSpeedBonus } from './save';
+import { canCancelJump, canCancelSlide, jumpBonus, startSpeedBonus } from './save';
 
 export let s = 0;
 export let lane = 0;
@@ -31,6 +32,9 @@ export let runCrystals = 0;
 export let speed = SPEED_START;
 export let dying = 0;
 export let falling = 0;
+export let swoop = 0;
+export let shield = 0;
+export let wings = 0;
 
 export function addCrystals(n: number): void {
   runCrystals += n;
@@ -54,11 +58,11 @@ export function visY(): number {
 }
 
 export function inputLocked(): boolean {
-  return falling > 0 || dying > 0;
+  return falling > 0 || swoop > 0 || dying > 0;
 }
 
 export function offTrack(): boolean {
-  return falling > 0 || fallY > 0;
+  return falling > 0 || swoop > 0 || fallY > 0;
 }
 
 export function resetPlayer(): void {
@@ -79,9 +83,12 @@ export function resetPlayer(): void {
   dropJump = 0;
   dying = 0;
   falling = 0;
+  swoop = 0;
   fallDir = 0;
   fallX = 0;
   fallY = 0;
+  shield = 0;
+  wings = 0;
 }
 
 export function hitboxH(): number {
@@ -117,7 +124,9 @@ export function tryJump(): void {
     return;
   }
   if (slide > 0) {
-    slide = 0;
+    if (canCancelSlide()) {
+      slide = 0;
+    }
     return;
   }
   slideBuf = 0;
@@ -130,6 +139,9 @@ export function trySlide(): void {
   }
   jumpBuf = 0;
   if (y > 0.02 || vy > 0) {
+    if (!canCancelJump()) {
+      return;
+    }
     if (dropJump) {
       slideBuf = JUMP_BUF;
     } else {
@@ -147,8 +159,32 @@ export function trySlide(): void {
   slide = SLIDE_TIME;
 }
 
+export function addLife(): void {
+  lives++;
+}
+
+export function grantShield(): void {
+  shield = 1;
+}
+
+export function grantWings(): void {
+  wings = 1;
+}
+
 export function hit(fell: boolean): void {
   if (iframes > 0 || dying > 0) {
+    return;
+  }
+  if (fell && wings > 0) {
+    wings = 0;
+    swoop = SWOOP_TIME;
+    playNova();
+    return;
+  }
+  if (!fell && shield > 0) {
+    shield = 0;
+    iframes = 0.55;
+    playHit();
     return;
   }
   lives--;
@@ -171,7 +207,22 @@ export function updatePlayer(dt: number): void {
   );
   s += speed * dt;
 
-  if (falling > 0 || (dying > 0 && fallY > 0)) {
+  if (swoop > 0) {
+    swoop -= dt;
+    const p = 1 - Math.max(0, swoop) / SWOOP_TIME;
+    fallX = Math.sin(p * Math.PI) * fallDir * 2.4;
+    const dip = Math.sin(Math.min(1, p / 0.38) * Math.PI) * 1.05;
+    const lift = p < 0.28 ? 0 : Math.sin(Math.min(1, (p - 0.28) / 0.72) * Math.PI) * 2.5;
+    fallY = dip - lift;
+    if (swoop <= 0) {
+      swoop = 0;
+      fallX = 0;
+      fallY = 0;
+      y = 0;
+      vy = 0;
+      iframes = IFRAMES;
+    }
+  } else if (falling > 0 || (dying > 0 && fallY > 0)) {
     fallX += fallDir * 8 * dt;
     fallY += (14 + fallY * 3.2) * dt;
   }

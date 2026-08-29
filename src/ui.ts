@@ -8,9 +8,9 @@ import {
   best,
   muted,
   noteBest,
-  SHOP_CAP,
   SHOP_NAMES,
   SHOP_ROWS,
+  shopCap,
   setMuted,
   shopPrice,
   shopRanks,
@@ -90,14 +90,21 @@ function plate(
   ctx.font = '600 ' + size + 'px ' + FONT;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  const w = ctx.measureText(text).width;
-  const left = align === 'center' ? x - w * 0.5 : align === 'right' ? x - w : x;
+  const m = ctx.measureText(text);
+  const visL = m.actualBoundingBoxLeft;
+  const visR = m.actualBoundingBoxRight;
+  const drawX =
+    align === 'center'
+      ? x - (visR - visL) * 0.5 + nudge
+      : align === 'right'
+        ? x - visR + nudge
+        : x + nudge;
   const padX = 12;
   const padY = padX * 2;
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(left - padX, y - padY, w + padX * 2, padY * 2);
+  ctx.fillRect(drawX - visL - padX, y - padY, visL + visR + padX * 2, padY * 2);
   ctx.fillStyle = fill;
-  ctx.fillText(text, left + nudge, y);
+  ctx.fillText(text, drawX, y);
 }
 
 function rainbowTitle(ctx: CanvasRenderingContext2D, text: string, y: number, size: number): void {
@@ -152,10 +159,15 @@ function layout(): void {
     addBtn(cx - bw * 0.5, cssH * 0.42, bw, bh, 'RESUME', 0);
     addBtn(cx - bw * 0.5, cssH * 0.42 + 66, bw, bh, 'QUIT', 1);
   } else if (scene === SCENE_SHOP) {
+    const colW = Math.min(210, cssW * 0.44);
+    const gap = 10;
+    const rowH = 44;
+    const left = cx - colW - gap * 0.5;
+    const top = cssH * 0.24;
     for (let i = 0; i < SHOP_ROWS; i++) {
-      addBtn(cx - bw * 0.5, cssH * 0.28 + i * 62, bw, 52, SHOP_NAMES[i], i);
+      addBtn(left + (i & 1) * (colW + gap), top + (i >> 1) * (rowH + 8), colW, rowH, SHOP_NAMES[i], i);
     }
-    addBtn(cx - bw * 0.5, cssH * 0.28 + SHOP_ROWS * 62 + 12, bw, bh, 'BACK', 9);
+    addBtn(cx - bw * 0.5, top + ((SHOP_ROWS + 1) >> 1) * (rowH + 8) + 4, bw, bh, 'BACK', 20);
   }
   pauseBtn = { x: 14, y: 12, w: 48, h: 40, label: '', id: -1 };
 }
@@ -169,14 +181,24 @@ function drawBtn(ctx: CanvasRenderingContext2D, b: Btn, selected: boolean): void
   ctx.stroke();
   ctx.fillStyle = selected ? '#111' : '#fff';
   ctx.font =
-    '700 ' + (b.label === 'START' ? 28 : b.label === 'UPGRADES' || b.label.startsWith('SOUND') ? 18 : 22) + 'px ' + FONT;
+    '700 ' +
+    (b.label === 'START'
+      ? 28
+      : b.label === 'UPGRADES' || b.label.startsWith('SOUND')
+        ? 18
+        : scene === SCENE_SHOP
+          ? 15
+          : 22) +
+    'px ' +
+    FONT;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   let label = b.label;
   if (scene === SCENE_SHOP && b.id < SHOP_ROWS) {
     const rank = shopRanks[b.id];
+    const cap = shopCap(b.id);
     const price = shopPrice(b.id);
-    label = b.label + '  ' + rank + '/' + SHOP_CAP + (rank >= SHOP_CAP ? '  MAX' : '  ' + price);
+    label = b.label + '  ' + rank + '/' + cap + (rank >= cap ? '  MAX' : '  ' + price);
   }
   ctx.fillText(label, b.x + b.w * 0.5, b.y + b.h * 0.5);
 }
@@ -235,7 +257,7 @@ function activate(id: number): void {
     return;
   }
   if (scene === SCENE_SHOP) {
-    if (id === 9) {
+    if (id === 20) {
       scene = SCENE_TITLE;
       focus = 0;
       return;
@@ -288,6 +310,21 @@ export function handleMenuKey(code: string): void {
     } else if (code === 'ArrowRight' || code === 'KeyD') {
       focus = 2;
     }
+  } else if (scene === SCENE_SHOP) {
+    const last = btns.length - 1;
+    if (code === 'ArrowDown' || code === 'KeyS') {
+      focus = Math.min(last, focus + 2);
+    } else if (code === 'ArrowUp' || code === 'KeyW') {
+      focus = Math.max(0, focus - 2);
+    } else if (code === 'ArrowLeft' || code === 'KeyA') {
+      if (focus & 1) {
+        focus--;
+      }
+    } else if (code === 'ArrowRight' || code === 'KeyD') {
+      if (!(focus & 1) && focus < last) {
+        focus++;
+      }
+    }
   } else if (code === 'ArrowDown' || code === 'KeyS') {
     focus = (focus + 1) % btns.length;
   } else if (code === 'ArrowUp' || code === 'KeyW') {
@@ -325,7 +362,7 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
       }
       livesText += '♥';
     }
-    plate(ctx, livesText || '♥ 0', cssW * 0.5, 88, 18, 'center', iframes > 0 ? '#faa' : '#f8a', 5);
+    plate(ctx, livesText || '♥ 0', cssW * 0.5, 88, 18, 'center', iframes > 0 ? '#faa' : '#f8a');
   }
 
   if (scene === SCENE_TITLE) {

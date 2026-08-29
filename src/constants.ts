@@ -61,6 +61,7 @@ export function resetFeel(): void {
 export const IFRAMES = 2;
 export const LIVES = 3;
 export const FALL_TIME = 1.15;
+export const SWOOP_TIME = 0.92;
 export const DEATH_HOLD = 0.52;
 
 export const CAM_FOV = 1.05;

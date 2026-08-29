@@ -1,5 +1,6 @@
-import { drawBox, drawPyr } from './gl';
+import { drawBox, drawPyr, setDepthWrite, setDrawAlpha } from './gl';
 import { pathFrame, yawAt } from './path';
+import { shield, swoop, wings } from './player';
 
 const BODY = [0.93, 0.94, 0.98];
 const SHADOW = [0.78, 0.8, 0.88];
@@ -55,6 +56,13 @@ export function drawUnicorn(
   };
 
   const by = y + 0.55 * g + 0.2 * splay + bob;
+  if (wings || swoop > 0) {
+    const flap = swoop > 0 ? Math.sin(swoop * 22) * 0.35 : 0;
+    pathFrame(s, laneX - 0.68, by + 0.18, 0, pos);
+    drawBox(view, pos[0], pos[1], pos[2], -0.22 - flap, yaw, 0.58, 0.1, 0.46, 0.58, 0.6, 0.66, -0.28);
+    pathFrame(s, laneX + 0.68, by + 0.18, 0, pos);
+    drawBox(view, pos[0], pos[1], pos[2], -0.22 - flap, yaw, 0.58, 0.1, 0.46, 0.58, 0.6, 0.66, 0.28);
+  }
   box(
     0,
     by,
@@ -104,4 +112,12 @@ export function drawUnicorn(
   box(-0.26, legY - lh * 0.42, backZ, bl, 0.16, 0.1, 0.18, HOOF[0], HOOF[1], HOOF[2]);
   box(0.26, legY, backZ, br, 0.14, lh, 0.14, BODY[0], BODY[1], BODY[2]);
   box(0.26, legY - lh * 0.42, backZ, br, 0.16, 0.1, 0.18, HOOF[0], HOOF[1], HOOF[2]);
+
+  if (shield) {
+    setDepthWrite(false);
+    setDrawAlpha(0.22);
+    box(0, by, 0.15 * splay, 0.15 * splay, 1.12, 0.82, 1.75, 1, 0.82, 0.18);
+    setDrawAlpha(1);
+    setDepthWrite(true);
+  }
 }

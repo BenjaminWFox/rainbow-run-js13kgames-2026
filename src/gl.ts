@@ -123,6 +123,10 @@ export function setDrawAlpha(a: number): void {
   drawA = a;
 }
 
+export function setDepthWrite(on: boolean): void {
+  gl.depthMask(on);
+}
+
 export function resizeGl(w: number, h: number): void {
   gl.viewport(0, 0, w, h);
   perspective(proj, CAM_FOV, w / Math.max(h, 1), 0.2, 220);
@@ -174,9 +178,10 @@ function drawPrim(
   sz: number,
   r: number,
   g: number,
-  b: number
+  b: number,
+  rz = 0
 ): void {
-  trs(model, x, y, z, rx, ry, sx, sy, sz);
+  trs(model, x, y, z, rx, ry, sx, sy, sz, rz);
   mul(tmp, view, model);
   mul(mvp, proj, tmp);
   gl.uniformMatrix4fv(uMvp, false, mvp);
@@ -198,9 +203,10 @@ export function drawBox(
   sz: number,
   r: number,
   g: number,
-  b: number
+  b: number,
+  rz = 0
 ): void {
-  drawPrim(boxBuf, 36, view, x, y, z, rx, ry, sx, sy, sz, r, g, b);
+  drawPrim(boxBuf, 36, view, x, y, z, rx, ry, sx, sy, sz, r, g, b, rz);
 }
 
 export function drawPyr(
