@@ -12,5 +12,6 @@ Straight-road Rainbow Run: WebGL1 engine, 3 lanes, unicorn kit (mane/tail includ
 |-----------|-------:|-----------:|---------:|-------|
 | First loop (phases 1–8, no arcs) | 7171 | 53.87% | 6,141 | Audio vendored. Starter PNG not shipped. |
 | With starter `public/i.png` | 8215 | 61.71% | 5,097 | Don't ship demo art |
+| Circular-arc path (phase 9) | 8019 | 60.24% | 5,293 | Straights + arcs, camera follows tangent. +848 B vs first loop |
 
-Next honest number: after circular-arc path (SPEC phase 9).
+Next honest number: after cubic-spline A/B, or tune + ship (phase 10).

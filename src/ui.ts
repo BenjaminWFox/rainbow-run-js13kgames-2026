@@ -79,17 +79,20 @@ function plate(
   y: number,
   size: number,
   align: CanvasTextAlign,
-  fill = '#fff'
+  fill = '#fff',
+  nudge = 0
 ): void {
   ctx.font = '600 ' + size + 'px ' + FONT;
-  ctx.textAlign = align;
   ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
   const w = ctx.measureText(text).width;
-  const ax = align === 'center' ? x : align === 'right' ? x - w : x;
+  const left = align === 'center' ? x - w * 0.5 : align === 'right' ? x - w : x;
+  const padX = 12;
+  const padY = padX * 2;
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(ax - 8, y - size * 0.55, w + 16, size * 1.1);
+  ctx.fillRect(left - padX, y - padY, w + padX * 2, padY * 2);
   ctx.fillStyle = fill;
-  ctx.fillText(text, x, y);
+  ctx.fillText(text, left + nudge, y);
 }
 
 function rainbowTitle(ctx: CanvasRenderingContext2D, text: string, y: number, size: number): void {
@@ -123,9 +126,10 @@ function layout(): void {
   const bw = Math.min(320, cssW * 0.7);
   const bh = 52;
   if (scene === SCENE_TITLE) {
-    addBtn(cx - bw * 0.5, cssH * 0.48, bw, bh, 'START', 0);
-    addBtn(cx - bw * 0.5, cssH * 0.48 + 66, bw, bh, 'UPGRADES', 1);
-    addBtn(cx - bw * 0.5, cssH * 0.48 + 132, bw, bh, muted ? 'SOUND: OFF' : 'SOUND: ON', 2);
+    const soundY = cssH - 18 - bh;
+    addBtn(cx - bw * 0.5, cssH * 0.28 + 118, bw, bh, 'START', 0);
+    addBtn(cx - bw * 0.5, soundY - 66, bw, bh, 'UPGRADES', 1);
+    addBtn(cx - bw * 0.5, soundY, bw, bh, muted ? 'SOUND: OFF' : 'SOUND: ON', 2);
   } else if (scene === SCENE_PAUSE) {
     addBtn(cx - bw * 0.5, cssH * 0.42, bw, bh, 'RESUME', 0);
     addBtn(cx - bw * 0.5, cssH * 0.42 + 66, bw, bh, 'QUIT', 1);
@@ -282,19 +286,22 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
     ctx.fillStyle = '#fff';
     ctx.fillRect(pauseBtn.x + 16, pauseBtn.y + 10, 6, 20);
     ctx.fillRect(pauseBtn.x + 28, pauseBtn.y + 10, 6, 20);
-    plate(ctx, (s | 0) + ' m', cssW * 0.5, 32, 28, 'center');
-    plate(ctx, String(runCrystals), cssW - 24, 32, 24, 'right', '#7ef');
+    plate(ctx, (s | 0) + ' m', cssW * 0.5, 36, 28, 'center');
+    plate(ctx, String(runCrystals), cssW - 24, 36, 24, 'right', '#7ef');
     let livesText = '';
     for (let i = 0; i < lives; i++) {
-      livesText += '♥ ';
+      if (i) {
+        livesText += ' ';
+      }
+      livesText += '♥';
     }
-    plate(ctx, livesText || '♥ 0', cssW * 0.5, 64, 18, 'center', iframes > 0 ? '#faa' : '#f8a');
+    plate(ctx, livesText || '♥ 0', cssW * 0.5, 88, 18, 'center', iframes > 0 ? '#faa' : '#f8a', 5);
   }
 
   if (scene === SCENE_TITLE) {
     rainbowTitle(ctx, 'RAINBOW RUN', cssH * 0.18, Math.min(72, cssW * 0.12));
-    plate(ctx, 'BEST  ' + best + ' m', cssW * 0.5, cssH * 0.3, 22, 'center');
-    plate(ctx, 'CRYSTALS  ' + banked, cssW * 0.5, cssH * 0.3 + 36, 20, 'center', '#7ef');
+    plate(ctx, 'BEST  ' + best + ' m', cssW * 0.5, cssH * 0.28, 22, 'center');
+    plate(ctx, 'CRYSTALS  ' + banked, cssW * 0.5, cssH * 0.28 + 70, 20, 'center', '#7ef');
   }
 
   if (scene === SCENE_SHOP) {
@@ -311,13 +318,15 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
   if (scene === SCENE_DEATH) {
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fillRect(0, 0, cssW, cssH);
-    plate(ctx, 'RUN OVER', cssW * 0.5, cssH * 0.32, 36, 'center');
-    plate(ctx, lastDist + ' m', cssW * 0.5, cssH * 0.42, 28, 'center');
-    plate(ctx, '+' + lastGems + ' CRYSTALS', cssW * 0.5, cssH * 0.5, 22, 'center', '#7ef');
+    const d0 = cssH * 0.28;
+    const dStep = cssH * 0.13;
+    plate(ctx, 'RUN OVER', cssW * 0.5, d0, 36, 'center');
+    plate(ctx, lastDist + ' m', cssW * 0.5, d0 + dStep, 28, 'center');
+    plate(ctx, '+' + lastGems + ' CRYSTALS', cssW * 0.5, d0 + dStep * 2, 22, 'center', '#7ef');
     if (newBest) {
-      plate(ctx, 'NEW BEST!', cssW * 0.5, cssH * 0.58, 26, 'center', '#ffd24a');
+      plate(ctx, 'NEW BEST!', cssW * 0.5, d0 + dStep * 3, 26, 'center', '#ffd24a');
     }
-    plate(ctx, 'TAP TO CONTINUE', cssW * 0.5, cssH * 0.72, 18, 'center');
+    plate(ctx, 'TAP TO CONTINUE', cssW * 0.5, cssH * 0.78, 36, 'center');
   }
 
   if (scene !== SCENE_RUN && scene !== SCENE_DEATH) {

@@ -1,20 +1,43 @@
 import { BAND_W, RAINBOW, ROAD_W } from './constants';
-import { drawBox } from './gl';
+import { drawTris } from './gl';
 import { rgb } from './math';
-import { pointOnPath, yawAt } from './path';
+import { sampleRange } from './path';
 
 const BACK = 16;
 const AHEAD = 90;
+const Y = -0.02;
+
+const xs: number[] = [];
+const zs: number[] = [];
+const nxs: number[] = [];
+const nzs: number[] = [];
+const bands: number[][] = [[], [], [], [], [], [], []];
 
 export function drawRoad(view: Float32Array, s: number): void {
-  const c = pointOnPath(s);
-  const yaw = yawAt(s);
-  const zMid = c[2] + (AHEAD - BACK) * 0.5;
-  const len = BACK + AHEAD;
+  sampleRange(s - BACK, s + AHEAD, xs, zs, nxs, nzs);
+  const n = xs.length;
+  if (n < 2) {
+    return;
+  }
   const half = ROAD_W * 0.5;
-  for (let i = 0; i < 7; i++) {
-    const col = rgb(RAINBOW[i]);
-    const x = c[0] - half + (i + 0.5) * BAND_W;
-    drawBox(view, x, -0.03, zMid, 0, yaw, BAND_W * 0.98, 0.06, len, col[0], col[1], col[2]);
+  for (let b = 0; b < 7; b++) {
+    bands[b].length = 0;
+    const u0 = -half + b * BAND_W;
+    const u1 = u0 + BAND_W;
+    for (let i = 0; i < n - 1; i++) {
+      const ax = xs[i] + nxs[i] * u0;
+      const az = zs[i] + nzs[i] * u0;
+      const bx = xs[i] + nxs[i] * u1;
+      const bz = zs[i] + nzs[i] * u1;
+      const cx = xs[i + 1] + nxs[i + 1] * u1;
+      const cz = zs[i + 1] + nzs[i + 1] * u1;
+      const dx = xs[i + 1] + nxs[i + 1] * u0;
+      const dz = zs[i + 1] + nzs[i + 1] * u0;
+      const v = bands[b];
+      v.push(ax, Y, az, bx, Y, bz, cx, Y, cz);
+      v.push(ax, Y, az, cx, Y, cz, dx, Y, dz);
+    }
+    const col = rgb(RAINBOW[b]);
+    drawTris(view, bands[b], col[0], col[1], col[2]);
   }
 }

@@ -1,5 +1,14 @@
-import { CAM_BACK, CAM_HEIGHT, CAM_LOOK, CAM_LOOK_Y, SKY_B, SKY_G, SKY_R } from './constants';
-import { beginFrame, initGl, resizeGl, setSky } from './gl';
+import {
+  CAM_BACK,
+  CAM_HEIGHT,
+  CAM_LOOK,
+  CAM_LOOK_Y,
+  DEATH_HOLD,
+  SKY_B,
+  SKY_G,
+  SKY_R,
+} from './constants';
+import { beginFrame, initGl, resizeGl, setDrawAlpha, setSky } from './gl';
 import {
   clearFrameInput,
   initInput,
@@ -14,10 +23,12 @@ import {
 } from './input';
 import { lookAt, mat4 } from './math';
 import { initMusic } from './music';
-import { yawAt } from './path';
+import { pointOnPath, tangent } from './path';
 import {
+  dying,
+  falling,
   iframes,
-  laneX,
+  inputLocked,
   lives,
   poseSplay,
   resetPlayer,
@@ -26,7 +37,8 @@ import {
   tryLane,
   trySlide,
   updatePlayer,
-  y,
+  visLaneX,
+  visY,
 } from './player';
 import { drawRoad } from './road';
 import { loadSave } from './save';
@@ -54,6 +66,7 @@ const ui = uiCanvas.getContext('2d') as CanvasRenderingContext2D;
 const view = mat4();
 
 let decoS = 0;
+let onMenu = true;
 let last = 0;
 let debug: typeof import('./debug') | undefined;
 
@@ -78,18 +91,20 @@ function camS(): number {
 
 function renderWorld(): void {
   const cs = camS();
-  const tanYaw = yawAt(cs);
-  const back = CAM_BACK;
-  const eyeX = Math.sin(tanYaw) * -back;
-  const eyeZ = cs + Math.cos(tanYaw) * -back;
+  const c = pointOnPath(cs);
+  const px = c[0];
+  const pz = c[2];
+  const tan = tangent(cs);
+  const tx = tan[0];
+  const tz = tan[2];
   lookAt(
     view,
-    eyeX,
+    px - tx * CAM_BACK,
     CAM_HEIGHT,
-    eyeZ,
-    Math.sin(tanYaw) * CAM_LOOK,
+    pz - tz * CAM_BACK,
+    px + tx * CAM_LOOK,
     CAM_LOOK_Y,
-    cs + Math.cos(tanYaw) * CAM_LOOK,
+    pz + tz * CAM_LOOK,
     0,
     1,
     0
@@ -99,12 +114,20 @@ function renderWorld(): void {
   if (scene === SCENE_RUN || scene === SCENE_PAUSE || scene === SCENE_DEATH) {
     drawWorld(view);
   }
-  const hide = scene === SCENE_RUN && iframes > 0 && ((iframes * 8) | 0) % 2 === 0;
+  const fading = dying > 0 || (lives <= 0 && scene !== SCENE_TITLE && scene !== SCENE_SHOP);
+  const hide =
+    !fading && !falling && scene === SCENE_RUN && iframes > 0 && ((iframes * 8) | 0) % 2 === 0;
   if (!hide) {
-    const ux = scene === SCENE_TITLE || scene === SCENE_SHOP ? 0 : laneX;
-    const uy = scene === SCENE_TITLE || scene === SCENE_SHOP ? 0 : y;
+    const ux = scene === SCENE_TITLE || scene === SCENE_SHOP ? 0 : visLaneX();
+    const uy = scene === SCENE_TITLE || scene === SCENE_SHOP ? 0 : visY();
     const spl = scene === SCENE_TITLE || scene === SCENE_SHOP ? 0 : poseSplay();
-    drawUnicorn(view, ux, uy, cs, yawAt(cs), cs, spl);
+    if (fading) {
+      setDrawAlpha(Math.max(0, dying / DEATH_HOLD));
+    }
+    drawUnicorn(view, ux, uy, cs, spl);
+    if (fading) {
+      setDrawAlpha(1);
+    }
   }
 }
 
@@ -113,7 +136,10 @@ function runInput(): void {
     pauseGame();
     return;
   }
-  // Chase cam looks +Z, which mirrors world X on screen — input is in screen space.
+  if (inputLocked() && dying > 0) {
+    return;
+  }
+  // Screen-left is +normal (lane +1). Chase cam looks along the tangent.
   if (swipe === SWIPE_LEFT || wasPressed('ArrowLeft') || wasPressed('KeyA')) {
     tryLane(1);
   }
@@ -163,19 +189,24 @@ function frame(now: number): void {
     handleTap(tapX, tapY);
   }
 
+  const menu = scene === SCENE_TITLE || scene === SCENE_SHOP;
   if (scene === SCENE_RUN) {
     runInput();
     updatePlayer(dt);
     updateWorld(dt);
-    if (lives <= 0) {
+    if (lives <= 0 && dying <= 0) {
       finishRun(true);
     }
   } else {
     menuKeys();
-    if (scene === SCENE_TITLE || scene === SCENE_SHOP) {
+    if (menu) {
+      if (!onMenu) {
+        decoS = 0;
+      }
       decoS += 6 * dt;
     }
   }
+  onMenu = menu;
 
   debug?.frame();
   renderWorld();
