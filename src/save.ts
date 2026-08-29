@@ -13,7 +13,7 @@ export const SHOP_FLAVOR = [
   'Jump: Jump higher and higher!',
   'Magnet: Picks up crystals from farther away!',
   'Shield: Increase chance to find shields, prevent a collision!',
-  'Health: Increase chance to find hearts, start with +1 life!',
+  'Health: Increase chance to find hearts, raise your max lives!',
   'Wings: Increase chance to find wings, save you from falling!',
   'X-Jump: Slide while jumping to land early!',
   'X-Slide: Jump while sliding to stand early!',

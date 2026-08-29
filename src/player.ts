@@ -71,7 +71,7 @@ export function resetPlayer(): void {
   y = 0;
   vy = 0;
   slide = 0;
-  lives = LIVES + healthRank();
+  lives = LIVES;
   iframes = 0;
   runCrystals = 0;
   speed = SPEED_START + startSpeedBonus();
@@ -145,8 +145,14 @@ export function trySlide(): void {
   slide = SLIDE_TIME;
 }
 
+export function maxLives(): number {
+  return LIVES + healthRank();
+}
+
 export function addLife(): void {
-  lives++;
+  if (lives < maxLives()) {
+    lives++;
+  }
 }
 
 export function grantShield(): void {

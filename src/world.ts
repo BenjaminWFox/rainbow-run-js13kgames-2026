@@ -13,6 +13,8 @@ import {
   iframes,
   lane,
   laneX,
+  lives,
+  maxLives,
   offTrack,
   s,
   slide,
@@ -225,6 +227,9 @@ function collectDrops(): void {
       continue;
     }
     if (Math.hypot(d.x - laneX, d.s - s, d.y - (y + 0.5)) > 0.95) {
+      continue;
+    }
+    if (d.kind === DROP_HEART && lives >= maxLives()) {
       continue;
     }
     d.dead = 1;

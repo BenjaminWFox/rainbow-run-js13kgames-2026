@@ -5,7 +5,7 @@ export const BAND_W = ROAD_W / 7;
 export const RAINBOW = [0xe40404, 0xff8200, 0xf1e300, 0x08ba00, 0x0030e2, 0x6c00ef, 0xa656ff];
 
 export const SPEED_START = 7;
-export const SPEED_CAP = 18;
+export const SPEED_CAP = 20;
 export const SPEED_RAMP = 0.04;
 
 /** Circular-arc path: start gentle, tighten with distance. */
