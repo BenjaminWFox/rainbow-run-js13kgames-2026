@@ -1,4 +1,4 @@
-import { HIT_LEN, LANE_W, RAINBOW } from './constants';
+import { HIT_H, HIT_H_SLIDE, HIT_LEN, LANE_W, RAINBOW } from './constants';
 import { drawBox, drawOct, setDepthWrite, setDrawAlpha } from './gl';
 import { rgb } from './math';
 import { playCrystal, playPowerup } from './music';
@@ -10,24 +10,24 @@ import {
   grantShield,
   grantWings,
   hit,
-  hitboxH,
   iframes,
   lane,
   laneX,
   offTrack,
   s,
+  slide,
   speed,
   y,
 } from './player';
 import { healthRank, magnetReach, shieldRank, wingsRank } from './save';
 
-export const OBS_LOW = 0;
-export const OBS_HIGH = 1;
-export const OBS_WALL = 2;
+const OBS_LOW = 0;
+const OBS_HIGH = 1;
+const OBS_WALL = 2;
 
-export const DROP_SHIELD = 0;
-export const DROP_HEART = 1;
-export const DROP_WINGS = 2;
+const DROP_SHIELD = 0;
+const DROP_HEART = 1;
+const DROP_WINGS = 2;
 
 type Obstacle = { s: number; lane: number; kind: number };
 type Crystal = { s: number; x: number; y: number; dead: number };
@@ -53,10 +53,6 @@ const bursts: Burst[] = [];
 const wp = [0, 0, 0];
 
 let nextS = 28;
-
-export function burstCount(): number {
-  return bursts.length;
-}
 
 export function resetWorld(): void {
   obstacles.length = 0;
@@ -139,7 +135,8 @@ function spawnDrop(at: number, mask: number): void {
     return;
   }
   const kind = pool[(rand() * pool.length) | 0];
-  const rank = kind === DROP_SHIELD ? shieldRank() : kind === DROP_HEART ? healthRank() : wingsRank();
+  const rank =
+    kind === DROP_SHIELD ? shieldRank() : kind === DROP_HEART ? healthRank() : wingsRank();
   if (rand() > 0.06 + 0.05 * rank) {
     return;
   }
@@ -255,7 +252,7 @@ function collide(): void {
     return;
   }
   const feet = y;
-  const head = y + hitboxH();
+  const head = y + (slide > 0 ? HIT_H_SLIDE : HIT_H);
   for (let i = 0; i < obstacles.length; i++) {
     const o = obstacles[i];
     if (Math.abs(o.s - s) > HIT_LEN) {
@@ -286,7 +283,7 @@ function magnet(dt: number): void {
     return;
   }
   const reach = magnetReach();
-  const span = reach === 1 ? 0 : reach === 2 ? 1 : reach === 3 ? 2 : -1;
+  const span = reach - 1;
   const catchR = 1.15 + speed * 0.1;
   const aimS = s + speed * 0.12;
   for (const c of crystals) {

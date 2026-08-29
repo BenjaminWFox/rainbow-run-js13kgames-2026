@@ -11,10 +11,11 @@ type Seg = {
 
 const segs: Seg[] = [];
 const p = [0, 0, 0];
-const t = [0, 0, 1];
+export const pathT = [0, 0, 1];
 const n = [1, 0, 0];
 
 let seed = 1;
+let curYaw = 0;
 let hint = 0;
 let pathEnd = 0;
 let xEnd = 0;
@@ -95,9 +96,10 @@ function evalAt(s: number): void {
     p[2] = seg.z0 + ds * Math.cos(yaw);
   }
   p[1] = 0;
-  t[0] = Math.sin(yaw);
-  t[1] = 0;
-  t[2] = Math.cos(yaw);
+  curYaw = yaw;
+  pathT[0] = Math.sin(yaw);
+  pathT[1] = 0;
+  pathT[2] = Math.cos(yaw);
   n[0] = Math.cos(yaw);
   n[1] = 0;
   n[2] = -Math.sin(yaw);
@@ -117,31 +119,16 @@ export function resetPath(): void {
   yawEnd = 0;
 }
 
-export function pointOnPath(s: number): number[] {
-  evalAt(s);
-  return p;
-}
-
-export function tangent(s: number): number[] {
-  evalAt(s);
-  return t;
-}
-
-export function normal(s: number): number[] {
-  evalAt(s);
-  return n;
-}
-
 export function yawAt(s: number): number {
   evalAt(s);
-  return Math.atan2(t[0], t[2]);
+  return curYaw;
 }
 
 export function pathFrame(s: number, lx: number, y: number, lz: number, out: number[]): number[] {
   evalAt(s);
-  out[0] = p[0] + n[0] * lx + t[0] * lz;
+  out[0] = p[0] + n[0] * lx + pathT[0] * lz;
   out[1] = p[1] + y;
-  out[2] = p[2] + n[2] * lx + t[2] * lz;
+  out[2] = p[2] + n[2] * lx + pathT[2] * lz;
   return out;
 }
 

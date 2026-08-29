@@ -29,10 +29,6 @@ export let muted = false;
 
 const KEY = 'rr';
 
-export function shopCap(row: number): number {
-  return SHOP_CAPS[row];
-}
-
 export function loadSave(): void {
   try {
     const raw = localStorage.getItem(KEY);
@@ -44,22 +40,14 @@ export function loadSave(): void {
       b?: number;
       r?: number[];
       m?: boolean;
-      v?: number;
     };
     banked = (data.c ?? 0) | 0;
     best = (data.b ?? 0) | 0;
     muted = !!data.m;
     const ranks = data.r;
     if (Array.isArray(ranks)) {
-      const src: number[] = [];
-      const skipValue = ranks.length !== SHOP_ROWS;
       for (let i = 0; i < SHOP_ROWS; i++) {
-        src[i] = (ranks[skipValue && i > 0 ? i + 1 : i] ?? 0) | 0;
-      }
-      const to = data.v === 2 ? null : [2, 0, 1, 6, 7, 3, 4, 5];
-      for (let i = 0; i < SHOP_ROWS; i++) {
-        const dest = to ? to[i] : i;
-        shopRanks[dest] = Math.max(0, Math.min(SHOP_CAPS[dest], src[i]));
+        shopRanks[i] = Math.max(0, Math.min(SHOP_CAPS[i], (ranks[i] ?? 0) | 0));
       }
     }
   } catch {
@@ -67,8 +55,8 @@ export function loadSave(): void {
   }
 }
 
-export function saveGame(): void {
-  localStorage.setItem(KEY, JSON.stringify({ c: banked, b: best, r: shopRanks, m: muted, v: 2 }));
+function saveGame(): void {
+  localStorage.setItem(KEY, JSON.stringify({ c: banked, b: best, r: shopRanks, m: muted }));
 }
 
 export function setMuted(value: boolean): void {

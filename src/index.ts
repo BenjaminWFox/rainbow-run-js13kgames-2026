@@ -23,17 +23,17 @@ import {
 } from './input';
 import { lookAt, mat4 } from './math';
 import { initMusic } from './music';
-import { pathFrame, pointOnPath, tangent } from './path';
+import { pathFrame, pathT } from './path';
 import {
   dying,
   falling,
   iframes,
-  swoop,
   inputLocked,
   lives,
-  poseSplay,
   resetPlayer,
   s,
+  splay,
+  swoop,
   tryJump,
   tryLane,
   trySlide,
@@ -89,17 +89,16 @@ function resize(): void {
 }
 
 function camS(): number {
-  return scene === SCENE_TITLE || scene === SCENE_SHOP ? decoS : s;
+  return onMenu ? decoS : s;
 }
 
 function renderWorld(): void {
   const cs = camS();
-  const c = pointOnPath(cs);
-  const px = c[0];
-  const pz = c[2];
-  const tan = tangent(cs);
-  const tx = tan[0];
-  const tz = tan[2];
+  pathFrame(cs, 0, 0, 0, hoof);
+  const px = hoof[0];
+  const pz = hoof[2];
+  const tx = pathT[0];
+  const tz = pathT[2];
   lookAt(
     view,
     px - tx * CAM_BACK,
@@ -117,7 +116,7 @@ function renderWorld(): void {
   if (scene === SCENE_RUN || scene === SCENE_PAUSE || scene === SCENE_DEATH) {
     drawWorld(view);
   }
-  const fading = dying > 0 || (lives <= 0 && scene !== SCENE_TITLE && scene !== SCENE_SHOP);
+  const fading = dying > 0 || (lives <= 0 && !onMenu);
   const hide =
     !fading &&
     !falling &&
@@ -126,9 +125,9 @@ function renderWorld(): void {
     iframes > 0 &&
     ((iframes * 8) | 0) % 2 === 0;
   if (!hide) {
-    const ux = scene === SCENE_TITLE || scene === SCENE_SHOP ? 0 : visLaneX();
-    const uy = scene === SCENE_TITLE || scene === SCENE_SHOP ? 0 : visY();
-    const spl = scene === SCENE_TITLE || scene === SCENE_SHOP ? 0 : poseSplay();
+    const ux = onMenu ? 0 : visLaneX();
+    const uy = onMenu ? 0 : visY();
+    const spl = onMenu ? 0 : splay;
     if (fading) {
       setDrawAlpha(Math.max(0, dying / DEATH_HOLD));
     }

@@ -1,18 +1,9 @@
-import {
-  COYOTE,
-  FONT,
-  JUMP_BUF,
-  JUMP_VEL,
-  resetFeel,
-  setFeel,
-  SLIDE_TIME,
-} from './constants';
+import { COYOTE, FONT, JUMP_BUF, JUMP_VEL, SLIDE_TIME } from './constants';
 import { yawAt } from './path';
 import {
   addCrystals,
   dying,
   falling,
-  feelLive,
   iframes,
   lane,
   lives,
@@ -24,7 +15,6 @@ import {
   y,
 } from './player';
 import { cssH, scene } from './ui';
-import { burstCount } from './world';
 
 let showFeel = false;
 
@@ -43,38 +33,10 @@ export function initDebug(): void {
     if (e.code === 'F3') {
       showFeel = !showFeel;
     }
-    if (e.code === 'Digit0') {
-      resetFeel();
-    }
-    if (e.code === 'Digit1') {
-      setFeel({ coyote: COYOTE - 0.01 });
-    }
-    if (e.code === 'Digit2') {
-      setFeel({ coyote: COYOTE + 0.01 });
-    }
-    if (e.code === 'Digit3') {
-      setFeel({ jumpBuf: JUMP_BUF - 0.01 });
-    }
-    if (e.code === 'Digit4') {
-      setFeel({ jumpBuf: JUMP_BUF + 0.01 });
-    }
-    if (e.code === 'Digit5') {
-      setFeel({ slide: SLIDE_TIME - 0.05 });
-    }
-    if (e.code === 'Digit6') {
-      setFeel({ slide: SLIDE_TIME + 0.05 });
-    }
-    if (e.code === 'Digit7') {
-      setFeel({ jumpVel: JUMP_VEL - 0.5 });
-    }
-    if (e.code === 'Digit8') {
-      setFeel({ jumpVel: JUMP_VEL + 0.5 });
-    }
   });
 }
 
 export function frame(): void {
-  const live = feelLive();
   (window as unknown as { rr: unknown }).rr = {
     s,
     lane,
@@ -85,20 +47,10 @@ export function frame(): void {
     scene,
     dying,
     falling,
-    bursts: burstCount(),
     y,
     slide,
     tryJump,
     trySlide,
-    feel: {
-      coyote: COYOTE,
-      jumpBuf: JUMP_BUF,
-      slide: SLIDE_TIME,
-      jumpVel: JUMP_VEL,
-      live,
-      set: setFeel,
-      reset: resetFeel,
-    },
   };
 }
 
@@ -106,17 +58,12 @@ export function drawFeel(ctx: CanvasRenderingContext2D): void {
   if (!showFeel) {
     return;
   }
-  const live = feelLive();
   const lines = [
-    'FEEL  F3 hide   0 reset',
-    'Coyote  ' + ms(COYOTE) + '   1/2   left ' + ms(Math.max(0, live.coyote)),
-    'Buffer  ' +
-      ms(JUMP_BUF) +
-      '   3/4   left ' +
-      ms(Math.max(0, live.jumpBuf, live.slideBuf)) +
-      (live.slideBuf > live.jumpBuf ? ' S' : live.jumpBuf > 0 ? ' J' : ''),
-    'Slide   ' + ms(SLIDE_TIME) + '   5/6   left ' + ms(Math.max(0, live.slide)),
-    'Jump v  ' + JUMP_VEL.toFixed(1) + '    7/8',
+    'FEEL  F3 hide',
+    'Coyote  ' + ms(COYOTE),
+    'Buffer  ' + ms(JUMP_BUF),
+    'Slide   ' + ms(SLIDE_TIME),
+    'Jump v  ' + JUMP_VEL.toFixed(1),
   ];
   ctx.save();
   ctx.font = '13px ' + FONT;

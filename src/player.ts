@@ -3,8 +3,6 @@ import {
   DEATH_HOLD,
   FALL_TIME,
   GRAVITY,
-  HIT_H,
-  HIT_H_SLIDE,
   IFRAMES,
   JUMP_BUF,
   JUMP_VEL,
@@ -24,7 +22,6 @@ export let s = 0;
 export let lane = 0;
 export let laneX = 0;
 export let y = 0;
-export let vy = 0;
 export let slide = 0;
 export let lives = LIVES;
 export let iframes = 0;
@@ -35,6 +32,9 @@ export let falling = 0;
 export let swoop = 0;
 export let shield = 0;
 export let wings = 0;
+export let splay = 0;
+
+let vy = 0;
 
 export function addCrystals(n: number): void {
   runCrystals += n;
@@ -43,7 +43,6 @@ export function addCrystals(n: number): void {
 let coyote = 0;
 let jumpBuf = 0;
 let slideBuf = 0;
-let splay = 0;
 let dropJump = 0;
 let fallDir = 0;
 let fallX = 0;
@@ -89,19 +88,6 @@ export function resetPlayer(): void {
   fallY = 0;
   shield = 0;
   wings = 0;
-}
-
-export function hitboxH(): number {
-  return slide > 0 ? HIT_H_SLIDE : HIT_H;
-}
-
-export function poseSplay(): number {
-  return splay;
-}
-
-/** Remaining coyote / jump-buffer / slide windows, for the DEV tuner. */
-export function feelLive(): { coyote: number; jumpBuf: number; slideBuf: number; slide: number } {
-  return { coyote, jumpBuf, slideBuf, slide };
 }
 
 export function tryLane(dir: number): void {
@@ -201,10 +187,8 @@ export function hit(fell: boolean): void {
 }
 
 export function updatePlayer(dt: number): void {
-  speed = Math.min(
-    SPEED_CAP + startSpeedBonus() * 0.4,
-    SPEED_START + startSpeedBonus() + s * SPEED_RAMP
-  );
+  const boost = startSpeedBonus();
+  speed = Math.min(SPEED_CAP + boost * 0.4, SPEED_START + boost + s * SPEED_RAMP);
   s += speed * dt;
 
   if (swoop > 0) {

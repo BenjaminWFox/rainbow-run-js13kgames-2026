@@ -1,4 +1,3 @@
-const down = new Set<string>();
 const pressed = new Set<string>();
 
 export let swipe = 0;
@@ -20,13 +19,9 @@ export function initInput(canvas: HTMLCanvasElement): void {
     if (e.code === 'Space' || e.code.startsWith('Arrow')) {
       e.preventDefault();
     }
-    if (!down.has(e.code)) {
+    if (!e.repeat) {
       pressed.add(e.code);
     }
-    down.add(e.code);
-  });
-  window.addEventListener('keyup', (e) => {
-    down.delete(e.code);
   });
 
   const start = (x: number, y: number, id: number): void => {

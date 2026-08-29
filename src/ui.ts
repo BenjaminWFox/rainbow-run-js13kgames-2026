@@ -8,12 +8,12 @@ import {
   best,
   muted,
   noteBest,
+  SHOP_CAPS,
   SHOP_FLAVOR,
   SHOP_NAMES,
+  SHOP_PRICES,
   SHOP_ROWS,
-  shopCap,
   setMuted,
-  shopPrice,
   shopRanks,
   tryBuy,
 } from './save';
@@ -26,7 +26,7 @@ export const SCENE_DEATH = 3;
 export const SCENE_SHOP = 4;
 
 export let scene = SCENE_TITLE;
-export let cssW = 1;
+let cssW = 1;
 export let cssH = 1;
 
 let focus = 0;
@@ -43,7 +43,7 @@ export function setTitleHoofY(y: number): void {
 type Btn = { x: number; y: number; w: number; h: number; label: string; id: number };
 
 const btns: Btn[] = [];
-let pauseBtn: Btn = { x: 16, y: 16, w: 52, h: 40, label: '', id: -1 };
+const pauseBtn = { x: 14, y: 12, w: 48, h: 40 };
 let flavorBox = { x: 0, y: 0, w: 0, h: 0 };
 
 export function setViewSize(w: number, h: number): void {
@@ -51,7 +51,7 @@ export function setViewSize(w: number, h: number): void {
   cssH = h;
 }
 
-export function startRun(): void {
+function startRun(): void {
   resetPlayer();
   resetWorld();
   scene = SCENE_RUN;
@@ -87,8 +87,7 @@ function plate(
   y: number,
   size: number,
   align: CanvasTextAlign,
-  fill = '#fff',
-  nudge = 0
+  fill = '#fff'
 ): void {
   ctx.font = '600 ' + size + 'px ' + FONT;
   ctx.textBaseline = 'middle';
@@ -96,12 +95,7 @@ function plate(
   const m = ctx.measureText(text);
   const visL = m.actualBoundingBoxLeft;
   const visR = m.actualBoundingBoxRight;
-  const drawX =
-    align === 'center'
-      ? x - (visR - visL) * 0.5 + nudge
-      : align === 'right'
-        ? x - visR + nudge
-        : x + nudge;
+  const drawX = align === 'center' ? x - (visR - visL) * 0.5 : align === 'right' ? x - visR : x;
   const padX = 12;
   const padY = padX * 2;
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
@@ -160,7 +154,7 @@ function drawFlavor(ctx: CanvasRenderingContext2D, text: string): void {
     lines.push(line);
   }
   const lineH = 20;
-  const y0 = y + h * 0.5 - ((lines.length - 1) * lineH) * 0.5;
+  const y0 = y + h * 0.5 - (lines.length - 1) * lineH * 0.5;
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(lines[i], x + w * 0.5, y0 + i * lineH);
   }
@@ -204,7 +198,14 @@ function layout(): void {
     const top = cssH * 0.24;
     const rows = (SHOP_ROWS + 1) >> 1;
     for (let i = 0; i < SHOP_ROWS; i++) {
-      addBtn(left + (i & 1) * (colW + gap), top + (i >> 1) * (rowH + 8), colW, rowH, SHOP_NAMES[i], i);
+      addBtn(
+        left + (i & 1) * (colW + gap),
+        top + (i >> 1) * (rowH + 8),
+        colW,
+        rowH,
+        SHOP_NAMES[i],
+        i
+      );
     }
     flavorBox = {
       x: left,
@@ -216,7 +217,6 @@ function layout(): void {
     addBtn(left, footY, colW, bh, 'BACK', 20);
     addBtn(left + colW + gap, footY, colW, bh, 'BUY', 21);
   }
-  pauseBtn = { x: 14, y: 12, w: 48, h: 40, label: '', id: -1 };
 }
 
 function drawBtn(ctx: CanvasRenderingContext2D, b: Btn, selected: boolean): void {
@@ -243,9 +243,8 @@ function drawBtn(ctx: CanvasRenderingContext2D, b: Btn, selected: boolean): void
   let label = b.label;
   if (scene === SCENE_SHOP && b.id < SHOP_ROWS) {
     const rank = shopRanks[b.id];
-    const cap = shopCap(b.id);
-    const price = shopPrice(b.id);
-    label = b.label + '  ' + rank + '/' + cap + (rank >= cap ? '' : '  ' + price);
+    const cap = SHOP_CAPS[b.id];
+    label = b.label + '  ' + rank + '/' + cap + (rank >= cap ? '' : '  ' + SHOP_PRICES[b.id]);
   }
   ctx.fillText(label, b.x + b.w * 0.5, b.y + b.h * 0.5);
 }
@@ -267,7 +266,7 @@ function roundRect(
   ctx.closePath();
 }
 
-export function hitPause(x: number, y: number): boolean {
+function hitPause(x: number, y: number): boolean {
   const b = pauseBtn;
   return x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
 }
@@ -456,8 +455,7 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
   if (scene !== SCENE_RUN && scene !== SCENE_DEATH) {
     for (let i = 0; i < btns.length; i++) {
       const b = btns[i];
-      const on =
-        scene === SCENE_SHOP && b.id < SHOP_ROWS ? b.id === shopSel : i === focus;
+      const on = scene === SCENE_SHOP && b.id < SHOP_ROWS ? b.id === shopSel : i === focus;
       drawBtn(ctx, b, on);
     }
   }

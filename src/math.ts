@@ -1,12 +1,7 @@
-export const identity = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+const identity = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 
 export function mat4(): Float32Array {
   return new Float32Array(identity);
-}
-
-export function copy(out: Float32Array, a: Float32Array): Float32Array {
-  out.set(a);
-  return out;
 }
 
 export function mul(out: Float32Array, a: Float32Array, b: Float32Array): Float32Array {

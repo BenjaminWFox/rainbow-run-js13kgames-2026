@@ -13,5 +13,7 @@ Straight-road Rainbow Run: WebGL1 engine, 3 lanes, unicorn kit (mane/tail includ
 | First loop (phases 1–8, no arcs) | 7171 | 53.87% | 6,141 | Audio vendored. Starter PNG not shipped. |
 | With starter `public/i.png` | 8215 | 61.71% | 5,097 | Don't ship demo art |
 | Circular-arc path (phase 9) | 8019 | 60.24% | 5,293 | Straights + arcs, camera follows tangent. +848 B vs first loop |
+| Pre-audit (unlogged growth) | 9949 | 74.74% | 3,363 | Shop drops / wings / shield / health since arcs. Not a dedicated milestone. |
+| Size audit trim | 9834 | 73.87% | 3,478 | −115 B. Dead helpers, old save remap, shared song pad, compact SFX rows. |
 
 Next honest number: after cubic-spline A/B, or tune + ship (phase 10).
