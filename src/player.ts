@@ -57,6 +57,10 @@ export function inputLocked(): boolean {
   return falling > 0 || dying > 0;
 }
 
+export function offTrack(): boolean {
+  return falling > 0 || fallY > 0;
+}
+
 export function resetPlayer(): void {
   s = 0;
   lane = 0;

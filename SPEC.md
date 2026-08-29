@@ -136,8 +136,9 @@ death screen (which ends the run).
   not in the base kit.
 - **I-frames:** **~2 seconds** after a non-fatal hit or fall. Unicorn **flashes** (~8 Hz
   skip-draw) except during a visible fall or the death fade. During i-frames, obstacles
-  and side-falls do **not** apply; crystals still collect. Lane input still works after
-  you are back on the road.
+  and side-falls do **not** apply; crystals still collect once you are back on the
+  road. While falling off the track, crystals do **not** collect. Lane input still
+  works after you are back on the road.
 - **Hitboxes:** generous. Unicorn collision is a single AABB (or capsule) smaller than the
   visible mesh — about the body, not the horn. Obstacles use simple AABBs. Crystals use a
   pickup radius larger than the sphere.
@@ -196,13 +197,14 @@ a safe lane or a jump/duck that works). Fair telegraph before a hairpin.
 - **Banked on death or quit-to-menu.** Uncollected crystals on the road are lost.
 - HUD shows **this-run** count; title / shop show the **bank**.
 - Magnet (shop) pulls and collects by **lane reach**, not a growing radius (see Shop).
+  No pickup and no magnet pull while falling off the track.
 
 ### Fail states
 
 | Event | Result |
 |-------|--------|
 | Hit obstacle (no i-frames) | −1 life, barrier explodes, 2s i-frames, stay in current lane |
-| Outward swipe from outer lane (no i-frames) | −1 life, visible fall, 2s i-frames, **respawn middle lane** |
+| Outward swipe from outer lane (no i-frames) | −1 life, visible fall (no crystal collect), 2s i-frames, **respawn middle lane** |
 | Last life | Fade ~0.5s (run still scrolls) → death overlay → title |
 
 ### HUD (in-run)

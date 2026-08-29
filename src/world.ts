@@ -3,7 +3,7 @@ import { drawBox, drawOct } from './gl';
 import { rgb } from './math';
 import { playCrystal } from './music';
 import { resetPath, worldPos, yawAt } from './path';
-import { addCrystals, dying, hit, hitboxH, iframes, lane, laneX, s, y } from './player';
+import { addCrystals, dying, hit, hitboxH, iframes, lane, laneX, offTrack, s, y } from './player';
 import { crystalValue, magnetReach } from './save';
 
 export const OBS_LOW = 0;
@@ -198,6 +198,9 @@ function collide(): void {
 }
 
 function magnet(dt: number): void {
+  if (offTrack()) {
+    return;
+  }
   const reach = magnetReach();
   const value = crystalValue();
   const span = reach === 1 ? 0 : reach === 2 ? 1 : reach === 3 ? 2 : -1;
