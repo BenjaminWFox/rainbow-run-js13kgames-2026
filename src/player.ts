@@ -38,6 +38,7 @@ export function addCrystals(n: number): void {
 
 let coyote = 0;
 let jumpBuf = 0;
+let slideBuf = 0;
 let splay = 0;
 let dropJump = 0;
 let fallDir = 0;
@@ -69,6 +70,7 @@ export function resetPlayer(): void {
   speed = SPEED_START + startSpeedBonus();
   coyote = 0;
   jumpBuf = 0;
+  slideBuf = 0;
   splay = 0;
   dropJump = 0;
   dying = 0;
@@ -84,6 +86,11 @@ export function hitboxH(): number {
 
 export function poseSplay(): number {
   return splay;
+}
+
+/** Remaining coyote / jump-buffer / slide windows, for the DEV tuner. */
+export function feelLive(): { coyote: number; jumpBuf: number; slideBuf: number; slide: number } {
+  return { coyote, jumpBuf, slideBuf, slide };
 }
 
 export function tryLane(dir: number): void {
@@ -109,6 +116,7 @@ export function tryJump(): void {
     slide = 0;
     return;
   }
+  slideBuf = 0;
   jumpBuf = JUMP_BUF;
 }
 
@@ -118,10 +126,15 @@ export function trySlide(): void {
   }
   jumpBuf = 0;
   if (y > 0.02 || vy > 0) {
+    if (dropJump) {
+      slideBuf = JUMP_BUF;
+    } else {
+      slideBuf = 0;
+      dropJump = 1;
+    }
     if (vy > -12) {
       vy = -12;
     }
-    dropJump = 1;
     return;
   }
   if (slide <= 0) {
@@ -179,6 +192,7 @@ export function updatePlayer(dt: number): void {
 
   if (inputLocked()) {
     jumpBuf = 0;
+    slideBuf = 0;
     if (iframes > 0) {
       iframes -= dt;
     }
@@ -194,14 +208,24 @@ export function updatePlayer(dt: number): void {
     coyote -= dt;
   }
   jumpBuf -= dt;
+  if (y <= 0) {
+    slideBuf -= dt;
+  }
 
   if (jumpBuf > 0 && coyote > 0) {
     y = 0.01;
     vy = JUMP_VEL * jumpBonus();
     coyote = 0;
     jumpBuf = 0;
+    slideBuf = 0;
     slide = 0;
     playHorn();
+  } else if (slideBuf > 0 && coyote > 0) {
+    if (slide <= 0) {
+      playNova();
+    }
+    slide = SLIDE_TIME;
+    slideBuf = 0;
   }
 
   if (y > 0 || vy > 0) {
@@ -211,6 +235,13 @@ export function updatePlayer(dt: number): void {
       y = 0;
       vy = 0;
       dropJump = 0;
+      if (slideBuf > 0) {
+        if (slide <= 0) {
+          playNova();
+        }
+        slide = SLIDE_TIME;
+        slideBuf = 0;
+      }
     }
   }
 
@@ -225,6 +256,6 @@ export function updatePlayer(dt: number): void {
     iframes -= dt;
   }
 
-  const want = slide > 0 || (y > 0.08 && !dropJump) ? 1 : 0;
+  const want = slide > 0 || slideBuf > 0 || (y > 0.08 && !dropJump) ? 1 : 0;
   splay += (want - splay) * Math.min(1, (dropJump ? 16 : 12) * dt);
 }

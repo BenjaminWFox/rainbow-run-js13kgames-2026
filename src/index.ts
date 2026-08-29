@@ -211,6 +211,7 @@ function frame(now: number): void {
   debug?.frame();
   renderWorld();
   drawUi(ui);
+  debug?.drawFeel(ui);
   clearFrameInput();
 }
 

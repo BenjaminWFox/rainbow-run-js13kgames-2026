@@ -26,7 +26,7 @@ These rules govern how code is written for this project.
    smaller final package than "DRY" cleverness.
 4. **One recipe, derived variants.** Geometry is authored in code (boxes, pyramids, triangle
    strips), not shipped as glTF/OBJ/PNG. One box builder and one strip builder should cover
-   the unicorn, obstacles, and road. Vertex colors, not textures.
+   the unicorn, obstacles, and road. Per-draw colors, not textures.
 5. **Measure, don't guess.** Run `npm run build` regularly and track the zipped size. Byte
    costs are unintuitive post-compression; decisions between approaches should be settled by
    building both when practical.
@@ -40,7 +40,7 @@ These rules govern how code is written for this project.
    - Audio (Dye Hard SoundBox player + song + 5 SFX, vendored early): measure immediately
    - If we go over, spend from the **fallback ladder**, cheapest pain first:
      1. Ghost runner — **never in v1** (Director's Cut).
-     2. Lighting, shadows, particles, motion blur — **deferred until a playable zip exists**.
+     2. Lighting, shadows, motion blur — **deferred**. Hit-burst boxes shipped; do not grow them into a general FX system.
      3. Mane and tail — drop if the unicorn kit (body, head, horn, four legs) is enough.
      4. Hairpin curves — keep gentle arcs; skip late-game radius tightening.
      5. Shop rows — drop rows, never the whole shop / persistence.
@@ -60,14 +60,14 @@ These rules govern how code is written for this project.
     When cutting something this way: move it under `src/directors-cut/`, leave a comment at
     the old call site explaining the swap, and add a row to the list below.
 
-    Currently isolated: *none yet (project not started).*
+    Currently isolated: *none yet.*
 
     Planned Director's Cut (do not build until the core loop ships):
 
     | Idea | Why it's cut from v1 |
     |------|----------------------|
     | Best-this-run ghost | Byte-heavy (record + replay a path) |
-    | Lighting / FX | Luxury; unlit vertex color first |
+    | Lighting / FX | Luxury; unlit flat color first |
     | Road gaps | Second fall axis + extra mesh |
     | Moving hazards | Extra update + spawn rules |
     | Temple-style L/T junctions | Dual-meaning left/right vs 3 lanes |
@@ -90,10 +90,10 @@ There is no story win — a run is a new **best distance**.
 
 - **Genre:** 3D endless runner (Temple Run / Subway Surfers *feel*, but **no player-triggered
   turns**). Auto-run along a path; the player only changes **lane**, **jumps**, and **ducks**.
-- **Path:** a centerline parameterized by distance `s`. Phase 1 is a **dead-straight** road.
-  Phase 2 adds **straights + circular arcs** that start gentle and can tighten toward hairpins
-  as distance grows (visibility around the bend is the late-game modifier). The camera and
-  unicorn **auto-follow** the tangent — the player never swipes to rotate.
+- **Path:** a centerline parameterized by distance `s`. **Straights + circular arcs**, generated
+  ahead and evaluated by arc-length. Arcs start gentle and tighten with distance (visibility
+  around the bend is the late-game modifier). The camera and unicorn **auto-follow** the
+  tangent — the player never swipes to rotate. A cubic-spline A/B is optional later; v1 is arcs.
 - **Lanes:** three. Lane index `-1 / 0 / 1`. Each lane is **~10% wider than the unicorn**, so
   total road width is **~3.3× unicorn width**. Seven **longitudinal** ROYGBIV bands are painted
   across the full width; they do **not** align 1:1 with lanes (the rainbow should not read as
@@ -106,9 +106,8 @@ There is no story win — a run is a new **best distance**.
 ### Title screen and flow
 
 - **Title screen:** title **"RAINBOW RUN"** at the top (system font, sans-serif). **Start**
-  button, **Upgrades** button (opens the crystal shop), **mute** toggle, **best distance**,
-  **banked crystals**. A 3D idling unicorn on the road is a later nice-to-have; a flat title
-  is fine for the first pass.
+  sits under best/crystals; **Upgrades** and **mute** are pinned to the bottom. Best
+  distance and banked crystals are shown. A 3D unicorn walks the road behind the menu.
 - **Start** begins a run immediately (no cutscene).
 - **Full loop:** title → Start → run → death overlay → title. Upgrades are only from the
   title screen (not forced after death). Pause menu's **Quit to Menu** returns to the title
@@ -118,10 +117,12 @@ There is no story win — a run is a new **best distance**.
 
 1. **Start:** middle lane, 3 lives, shop ranks applied, speed at the start value.
 2. **Play:** auto-run. Lane / jump / duck. Obstacles and crystals spawn ahead and cull behind.
-3. **Hit or fall:** lose 1 life, **~2s flashing invulnerability**. If the fail was a **fall
-   off the side**, snap to the **middle lane** and keep running. If the fail was an
-   **obstacle**, stay in the current lane.
-4. **Death:** when lives hit 0, show the death overlay, then the title.
+3. **Hit or fall:** lose 1 life, **~2s flashing invulnerability**. An **obstacle** hit
+   explodes that barrier into rainbow boxes and you stay in the current lane. A **fall
+   off the side** is a visible drop (track keeps scrolling; input locked), then you
+   respawn in the **middle lane**.
+4. **Death:** last life **fades out (~0.5s)** while the run keeps scrolling, then the
+   death overlay. Any tap/key returns to the title.
 5. **Pause** (P or the HUD pause button) freezes **everything** — motion, spawns, i-frames
    timer, cooldowns. Overlay: **Resume** and **Quit to Menu**.
 
@@ -132,9 +133,10 @@ death screen (which ends the run).
 
 - **Lives:** baseline **3** per run. No HP bar. A 1-hit **shield** is a possible shop row,
   not in the base kit.
-- **I-frames:** **~2 seconds** after any hit or fall. Unicorn **flashes** (skip drawing on
-  a ~8 Hz blink, or toggle vertex brightness). During i-frames, obstacles and side-falls
-  do **not** apply; crystals still collect. Lane input still works (so you can recover).
+- **I-frames:** **~2 seconds** after a non-fatal hit or fall. Unicorn **flashes** (~8 Hz
+  skip-draw) except during a visible fall or the death fade. During i-frames, obstacles
+  and side-falls do **not** apply; crystals still collect. Lane input still works after
+  you are back on the road.
 - **Hitboxes:** generous. Unicorn collision is a single AABB (or capsule) smaller than the
   visible mesh — about the body, not the horn. Obstacles use simple AABBs. Crystals use a
   pickup radius larger than the sphere.
@@ -149,15 +151,19 @@ death screen (which ends the run).
 - **Falling off:** from lane `-1`, a left input falls; from lane `+1`, a right input falls.
   There are **no rails**. You stay glued on curves — hairpins do **not** fling the outer
   lane off. Falling is **only** that extra outward input (or a future gap, which is
-  Director's Cut).
+  Director's Cut). The unicorn slides outward and drops; after ~1.15s it snaps to mid
+  lane (unless that fall was the last life, in which case it keeps dropping/fading).
 - **Jump:** swipe **up**, **arrow up**, **W**, or **space**. Single jump, no double-jump.
-  **Coyote time** and **jump buffering** (durations TBD) for playability. Pose = the duck
-  pose, translated up. Height / hang time TBD.
-- **Duck / slide:** **fixed duration** (TBD; long enough to clear one overhead).
-  **Swipe down** or **arrow down / S** starts it — tap/press, **not** hold-to-stay-down.
-  Pose: unicorn **splayed on its belly**, forelegs forward, hind legs back.
-- **Jump vs slide:** starting a jump while sliding (or the reverse) — TBD; first
-  implementation can let jump cancel a slide.
+  **Coyote** starts at **80ms** (late jump after leaving the ground). **Input buffer**
+  starts at **120ms** and applies to **jump and slide** (early press before landing
+  still fires). Pose = the duck pose, translated up.
+- **Duck / slide:** **fixed duration**, tap/press, **not** hold-to-stay-down.
+  Starts at **550ms**. **Swipe down** or **arrow down / S**. Pose: unicorn
+  **splayed on its belly**.
+- **Jump vs slide:** opposite gesture **cancels** the current pose — it does **not**
+  swap into the other action. Up while sliding stands up (then up again jumps). Down
+  while jumping fast-falls and unfolds to **run**. A **second** down while still
+  airborne queues a slide until you land (early slide). Last input wins.
 
 ### Speed and difficulty
 
@@ -165,8 +171,7 @@ death screen (which ends the run).
 - The same distance parameter later **tightens arc radius** (gentle snake → significant
   hairpin). Late-game difficulty is **not seeing** obstacles around the bend, not a
   physics slide-off.
-- Phase 1 (straight road) still ramps **speed** and **obstacle density** so the straight
-  prototype is already a game.
+- Speed and obstacle density also ramp with `s` on the winding road.
 
 ### Obstacles (v1)
 
@@ -179,25 +184,25 @@ No moving hazards. No road gaps in v1.
 | Lane blocker | Change lane | Solid in that lane; running into it is a hit |
 
 Spawn rules (TBD, tune in play): never block **all three** lanes at the same `s` (always
-a safe lane or a jump/duck that works). Fair telegraph before a hairpin once arcs exist.
+a safe lane or a jump/duck that works). Fair telegraph before a hairpin.
 
 ### Crystals
 
 - In-run pickups. Stand-in **spheres** (or a cheap faceted icosphere / octahedron) until
   a crystal mesh is worth the bytes.
-- Placement: on lanes, including jump-arcs and duck-tunnels once those obstacles exist.
-  Centerline-only is fine for the first pass.
+- Placement: **lines** on lanes. Jump barriers get an arc over the top; duck barriers get
+  a dip under the bar; open lanes get a short ground line.
 - **Banked on death or quit-to-menu.** Uncollected crystals on the road are lost.
 - HUD shows **this-run** count; title / shop show the **bank**.
-- Magnet (shop) pulls nearby crystals toward the unicorn. Attract radius and pull speed TBD.
+- Magnet (shop) pulls and collects by **lane reach**, not a growing radius (see Shop).
 
 ### Fail states
 
 | Event | Result |
 |-------|--------|
-| Hit obstacle (no i-frames) | −1 life, 2s i-frames, stay in current lane |
-| Outward swipe from outer lane (no i-frames) | −1 life, 2s i-frames, **snap to middle lane** |
-| Lives reach 0 | Death overlay → title |
+| Hit obstacle (no i-frames) | −1 life, barrier explodes, 2s i-frames, stay in current lane |
+| Outward swipe from outer lane (no i-frames) | −1 life, visible fall, 2s i-frames, **respawn middle lane** |
+| Last life | Fade ~0.5s (run still scrolls) → death overlay → title |
 
 ### HUD (in-run)
 
@@ -206,7 +211,7 @@ Top of the screen, system font:
 - **Pause button** (top-left) — also **P**.
 - **Distance** in integer **meters** (top-center).
 - **This-run crystals** (top-right).
-- **Lives** — three icons or "×N" near the top; exact layout TBD.
+- **Lives** — heart icons centered under distance.
 
 No speedometer. No best-ghost. Best distance is title + death overlay only.
 
@@ -240,7 +245,7 @@ mobile Chrome). Safari is not a support target, but don't *deliberately* break i
 
 ### Persistence
 
-`localStorage` key TBD (short, e.g. `rr`). One JSON blob:
+`localStorage` key **`rr`**. One JSON blob:
 
 | Field | Contents |
 |-------|----------|
@@ -262,18 +267,21 @@ already 3).
 
 | Row | 3 ranks |
 |-----|---------|
-| Magnet | Attract radius grows per rank |
+| Magnet | **Lane reach:** (1) current lane, including above/below you; (2) adjacent lanes (center reaches both); (3) all three lanes |
 | Crystal value | More banked crystals per pickup |
-| Start speed | Faster at run start (and/or higher cap — pick one when tuning) |
-| Jump / slide | Jump height **or** slide duration (pick one row; don't ship both unless bytes allow) |
-| Shield | Optional: 1-hit shield at run start, 1/2/3 charges. Cut first if the shop is fat. |
+| Start speed | Faster at run start |
+| Jump height | Higher jump per rank |
+| Shield | Optional, not shipped. Cut first if the shop is fat. |
 
 ### Death overlay
 
+Shown after the last-life fade. Evenly stacked:
+
+- **RUN OVER**
 - This-run **distance** (m)
 - This-run **crystals**
 - **"NEW BEST!"** if `distance > best`
-- Any click / tap / key returns to title
+- **TAP TO CONTINUE** (larger). Any click / tap / key returns to title
 
 ### Audio
 
@@ -293,8 +301,9 @@ already 3).
 
 ### Rendering: WebGL1 + 2D overlay
 
-- **3D:** raw **WebGL1**, unlit, **vertex colors**. No textures, no three.js, no lighting
-  in v1. One program: attribute `position` + `color`, uniforms `model`, `view`, `proj`.
+- **3D:** raw **WebGL1**, unlit. No textures, no three.js, no lighting in v1. One program:
+  attribute `position`, uniforms combined MVP, **flat color**, and **alpha** (death fade).
+  Color is per-draw, not a vertex attribute.
 - **UI:** a second full-viewport **2D canvas** stacked on top. `fillText` / `fillRect`
   for HUD and menus. This is how system fonts stay crisp.
 - **Resize:** both canvases fill the window. Backing store = `clientSize * devicePixelRatio`
@@ -305,9 +314,9 @@ already 3).
 
 ### Camera
 
-- **Chase cam:** behind and slightly above the unicorn, looking along the path tangent
-  (phase 1: +Z). Follow distance, height, pitch, FOV TBD — unicorn should read as a
-  character, with enough road ahead to react.
+- **Chase cam:** behind and slightly above the unicorn, looking along the path tangent.
+  Follow distance, height, pitch, FOV TBD — unicorn should read as a character, with
+  enough road ahead to react.
 - Camera is a function of `s` (and later the path frame), not of lane offset, or only a
   tiny lateral ease so strafing doesn't swing the horizon. Prefer **stable horizon**.
 - On arcs, the camera yaws with the tangent (auto). No extra player turn animation.
@@ -320,10 +329,10 @@ Player position:
 pos = pointOnPath(s) + laneOffset * normal(s) + (0, y, 0)
 ```
 
-- Phase 1: `pointOnPath(s) = (0, 0, s)`, `normal = (1, 0, 0)`, tangent = `(0, 0, 1)`.
-- Phase 2: polyline of **straight segments + circular arcs**. Evaluate with arc-length
-  `s`. Frenet/normal from the tangent; **no** full cubic spline unless a build proves
-  arcs are more bytes than a Bézier — arcs should win.
+- Current: polyline of **straight segments + circular arcs**, evaluated by arc-length
+  `s`. Frenet/normal from the tangent. Yaw 0 = +Z; `tangent = (sin yaw, 0, cos yaw)`;
+  `normal = (cos yaw, 0, -sin yaw)` so lane `+1` is +X on a straight. A cubic spline
+  A/B is optional; v1 stays arcs.
 - Generate **ahead** of the camera and **cull** behind. Fully procedural; no hand
   chunks. Seeded RNG so a ghost/replay *could* be added later without rewriting the
   generator (ghost itself is still Director's Cut).
@@ -358,7 +367,7 @@ No exported meshes. Build at startup:
 | Tail | 1–2 boxes | **Only if** the zip can afford it |
 
 Colors: off-white body, slightly cooler/silver sheen as a second vertex color if it's
-free (two shades of grey-white), horn a pale gold or white, hooves darker grey. Iterate
+free (two shades of grey-white via separate draws), horn a pale gold or white, hooves darker grey. Iterate
 the proportions in play — first mesh is a **readable placeholder**, not final art.
 
 **Draw path:** a tiny matrix stack (translate/rotate/scale around a shared box) is
@@ -420,21 +429,19 @@ Background: solid clear-color, TBD.
 Locked decisions are in §2–§3. Remaining knobs are **tune in play** unless noted:
 
 - Speed: start, ramp rate, soft cap.
-- Jump height, air time, coyote ms, buffer ms; slide duration; lane-lerp ms.
-- Jump-cancel-slide (and the reverse).
+- Jump height, air time, coyote / buffer / slide — starting knobs in `constants.ts`
+  (80 / 120 / 550 ms). DEV F3 tuner; lock numbers here after playtest.
+- Lane-lerp ms.
 - Obstacle sizes, telegraph distance, density vs `s`.
-- Crystal value baseline, spawn rate, magnet radius / pull speed.
+- Crystal value baseline and spawn density (magnet is lane-reach, already locked).
 - Shop prices and per-rank amounts; whether Shield ships; Start speed vs cap.
 - Unicorn proportions (long face, horn size, leg length) — iterate on the first mesh.
 - Camera: FOV, follow distance, height; how much road-ahead at start vs high speed.
-- I-frame flash rate; lives HUD art (text vs three tiny unicorn heads).
+- I-frame flash rate.
 - Sky clear-color.
 - Swipe pixel threshold; whether swipe is measured on end or after a lock-in distance.
-- Exact overlay copy (death line besides numbers).
-- Final SFX mapping once the loop exists.
-- Title: 3D unicorn in the background vs flat.
-- `localStorage` key (`rr` vs something less collidable).
-- Whether integer meters are `floor(s)` in world units (set 1 world unit = 1 meter).
+- Final SFX mapping / remix.
+- Cubic-spline path A/B vs the shipped circular arcs.
 
 ---
 
@@ -464,8 +471,8 @@ includes it before we add more game.
 
 Notes:
 
-- Do **not** start phase 9 until 1–7 are a complete loop with an honest zip number.
-- Straight-road Rainbow Run (phases 1–7) is already a submittable genre piece if arcs
-  slip. Arcs are the visual upgrade, not the control scheme.
+- Phases 1–9 are shipped. Playtest polish after arcs (visible fall, hit burst, jump/duck
+  cancel, crystal lines, magnet lane-reach, death fade, title/HUD plates) is locked in §2.
+- Phase 10 is numbers, leftover §5 knobs, fallback ladder, and golf.
 - If phase 3 (unicorn) is blocking the feel of phase 2, a colored box as a stand-in
   player is allowed for a day — don't polish the mesh before lanes work.

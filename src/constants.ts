@@ -16,11 +16,47 @@ export const ARC_R_MIN = 18;
 export const ARC_TIGHTEN = 0.032;
 
 export const GRAVITY = 38;
-export const JUMP_VEL = 11;
-export const COYOTE = 0.08;
-export const JUMP_BUF = 0.12;
-export const SLIDE_TIME = 0.55;
+/** Starting feel knobs — DEV F3 tuner mutates the `let`s. */
+export const JUMP_VEL0 = 11;
+export const COYOTE0 = 0.08;
+export const JUMP_BUF0 = 0.12;
+export const SLIDE_TIME0 = 0.55;
+export let JUMP_VEL = JUMP_VEL0;
+export let COYOTE = COYOTE0;
+export let JUMP_BUF = JUMP_BUF0;
+export let SLIDE_TIME = SLIDE_TIME0;
 export const LANE_SNAP = 14;
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+export function setFeel(next: {
+  coyote?: number;
+  jumpBuf?: number;
+  slide?: number;
+  jumpVel?: number;
+}): void {
+  if (next.coyote != null) {
+    COYOTE = clamp(next.coyote, 0, 0.35);
+  }
+  if (next.jumpBuf != null) {
+    JUMP_BUF = clamp(next.jumpBuf, 0, 0.4);
+  }
+  if (next.slide != null) {
+    SLIDE_TIME = clamp(next.slide, 0.12, 1.6);
+  }
+  if (next.jumpVel != null) {
+    JUMP_VEL = clamp(next.jumpVel, 6, 18);
+  }
+}
+
+export function resetFeel(): void {
+  JUMP_VEL = JUMP_VEL0;
+  COYOTE = COYOTE0;
+  JUMP_BUF = JUMP_BUF0;
+  SLIDE_TIME = SLIDE_TIME0;
+}
 
 export const IFRAMES = 2;
 export const LIVES = 3;
