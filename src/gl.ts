@@ -119,8 +119,10 @@ export function initGl(canvas: HTMLCanvasElement): void {
   gl.uniform1f(uAlpha, 1);
 }
 
-export function setDrawAlpha(a: number): void {
+export function setDrawAlpha(a: number): number {
+  const prev = drawA;
   drawA = a;
+  return prev;
 }
 
 export function setDepthWrite(on: boolean): void {

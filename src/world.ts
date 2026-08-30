@@ -22,6 +22,7 @@ import {
   y,
 } from './player';
 import { healthRank, magnetReach, shieldRank, wingsRank } from './save';
+import { beginShadows, endShadows, stampShadow } from './shadow';
 
 const OBS_LOW = 0;
 const OBS_HIGH = 1;
@@ -376,7 +377,37 @@ function magnet(dt: number): void {
   }
 }
 
+function stampObstacle(view: Float32Array, o: Obstacle): void {
+  const yaw = yawAt(o.s);
+  const x = o.lane * LANE_W;
+  if (o.kind === OBS_LOW) {
+    stampShadow(view, o.s, x, 0, 0.2, 0, yaw, LANE_W * 0.9, 0.45);
+  } else if (o.kind === OBS_HIGH || o.kind === OBS_GATE) {
+    const hw = LANE_W * 0.42;
+    stampShadow(view, o.s, x, -hw, 0.36, 0, yaw, 0.12, 0.12);
+    stampShadow(view, o.s, x, hw, 0.36, 0, yaw, 0.12, 0.12);
+    stampShadow(view, o.s, x, 0, 0.72, 0, yaw, LANE_W * 0.92, 0.16);
+    if (o.kind === OBS_GATE) {
+      stampShadow(view, o.s, x, 0, 1.25, 0, yaw, LANE_W * 0.85, 0.4);
+    }
+  } else if (o.kind === OBS_TOWER) {
+    stampShadow(view, o.s, x, 0, 0.95, 0, yaw, LANE_W * 0.85, 0.4);
+  } else {
+    stampShadow(view, o.s, x, 0, 0.55, 0, yaw, LANE_W * 0.85, 0.4);
+  }
+}
+
 export function drawWorld(view: Float32Array): void {
+  beginShadows();
+  for (const o of obstacles) {
+    stampObstacle(view, o);
+  }
+  for (const c of crystals) {
+    if (!c.dead) {
+      stampShadow(view, c.s, c.x, 0, c.y, 0, yawAt(c.s), 0.36, 0.36, true);
+    }
+  }
+  endShadows();
   for (const o of obstacles) {
     const yaw = yawAt(o.s);
     const x = o.lane * LANE_W;
