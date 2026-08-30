@@ -42,6 +42,7 @@ import {
   visY,
 } from './player';
 import { drawRoad } from './road';
+import { drawStars, updateStars } from './stars';
 import { loadSave } from './save';
 import {
   drawUi,
@@ -113,6 +114,7 @@ function renderWorld(): void {
   );
   beginFrame();
   drawRoad(view, cs);
+  drawStars(view);
   if (scene === SCENE_RUN || scene === SCENE_PAUSE || scene === SCENE_DEATH) {
     drawWorld(view);
   }
@@ -219,6 +221,7 @@ function frame(now: number): void {
     }
   }
   onMenu = menu;
+  updateStars(dt, camS());
   syncMusic(scene === SCENE_RUN, scene === SCENE_PAUSE, dt);
 
   debug?.frame();
