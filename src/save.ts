@@ -1,7 +1,7 @@
 export const SHOP_NAMES = [
-  'SPEED',
-  'JUMP',
   'MAGNET',
+  'JUMP',
+  'CHARGE',
   'SHIELD',
   'HEALTH',
   'WINGS',
@@ -9,9 +9,9 @@ export const SHOP_NAMES = [
   'X-SLIDE',
 ];
 export const SHOP_FLAVOR = [
-  'Speed: Start out faster!',
-  'Jump: Jump higher and higher!',
   'Magnet: Picks up crystals from farther away!',
+  'Jump: Jump higher and higher!',
+  'Charge: Increase chance to find charges, smash a burst forward!',
   'Shield: Increase chance to find shields, prevent a collision!',
   'Health: Increase chance to find hearts, raise your max lives!',
   'Wings: Increase chance to find wings, save you from falling!',
@@ -40,14 +40,25 @@ export function loadSave(): void {
       b?: number;
       r?: number[];
       m?: boolean;
+      v?: number;
     };
     banked = (data.c ?? 0) | 0;
     best = (data.b ?? 0) | 0;
     muted = !!data.m;
     const ranks = data.r;
     if (Array.isArray(ranks)) {
-      for (let i = 0; i < SHOP_ROWS; i++) {
-        shopRanks[i] = Math.max(0, Math.min(SHOP_CAPS[i], (ranks[i] ?? 0) | 0));
+      if ((data.v ?? 1) < 2) {
+        shopRanks[0] = clampRank(0, ranks[2]);
+        shopRanks[1] = clampRank(1, ranks[1]);
+        shopRanks[2] = 0;
+        for (let i = 3; i < SHOP_ROWS; i++) {
+          shopRanks[i] = clampRank(i, ranks[i]);
+        }
+        saveGame();
+      } else {
+        for (let i = 0; i < SHOP_ROWS; i++) {
+          shopRanks[i] = clampRank(i, ranks[i]);
+        }
       }
     }
   } catch {
@@ -55,8 +66,12 @@ export function loadSave(): void {
   }
 }
 
+function clampRank(row: number, n: number | undefined): number {
+  return Math.max(0, Math.min(SHOP_CAPS[row], (n ?? 0) | 0));
+}
+
 function saveGame(): void {
-  localStorage.setItem(KEY, JSON.stringify({ c: banked, b: best, r: shopRanks, m: muted }));
+  localStorage.setItem(KEY, JSON.stringify({ v: 2, c: banked, b: best, r: shopRanks, m: muted }));
 }
 
 export function setMuted(value: boolean): void {
@@ -96,16 +111,16 @@ export function tryBuy(row: number): boolean {
   return true;
 }
 
-export function startSpeedBonus(): number {
-  return shopRanks[0] * 1.6;
-}
-
 export function jumpBonus(): number {
   return 1 + 0.12 * shopRanks[1];
 }
 
 /** 0 = off, 1 = current lane, 2 = adjacent, 3 = all lanes. */
 export function magnetReach(): number {
+  return shopRanks[0];
+}
+
+export function chargeRank(): number {
   return shopRanks[2];
 }
 

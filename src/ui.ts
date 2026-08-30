@@ -1,7 +1,7 @@
-import { FONT, RAINBOW } from './constants';
+import { CHARGE_DIST, FONT, RAINBOW } from './constants';
 import { rgb } from './math';
 import { applyMute, playPowerup } from './music';
-import { iframes, lives, resetPlayer, runCrystals, s } from './player';
+import { charge, iframes, lives, resetPlayer, runCrystals, s } from './player';
 import {
   addBank,
   banked,
@@ -424,6 +424,21 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
       livesText += '♥';
     }
     plate(ctx, livesText || '♥ 0', cssW * 0.5, 88, 18, 'center', iframes > 0 ? '#faa' : '#f8a');
+    if (charge > 0) {
+      const bw = Math.min(220, cssW * 0.42);
+      const bh = 10;
+      const bx = cssW * 0.5 - bw * 0.5;
+      const by = 120;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      roundRect(ctx, bx, by, bw, bh, 5);
+      ctx.fill();
+      const fillW = bw * (charge / CHARGE_DIST);
+      if (fillW > 1) {
+        ctx.fillStyle = '#7ef';
+        roundRect(ctx, bx, by, fillW, bh, 5);
+        ctx.fill();
+      }
+    }
   }
 
   if (scene === SCENE_TITLE) {

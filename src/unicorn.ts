@@ -1,6 +1,6 @@
 import { drawBox, drawPyr, setDepthWrite, setDrawAlpha } from './gl';
 import { pathFrame, yawAt } from './path';
-import { shield, swoop, wings } from './player';
+import { charge, shield, swoop, wings } from './player';
 import { beginShadows, endShadows, stampShadow } from './shadow';
 
 const BODY = [0.93, 0.94, 0.98];
@@ -24,6 +24,9 @@ export function drawUnicorn(
   const g = 1 - splay;
   const run = Math.sin(s * 3.6) * 0.55 * g;
   const bob = Math.abs(Math.sin(s * 3.6)) * 0.04 * g;
+  if (charge > 0) {
+    y += 0.5 * splay;
+  }
 
   const box = (
     lx: number,

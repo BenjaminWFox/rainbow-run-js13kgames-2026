@@ -121,7 +121,7 @@ export function applyMute(): void {
     musicGain.gain.value = muted ? 0 : 0.25;
   }
   if (sfxGain) {
-    sfxGain.gain.value = muted ? 0 : 1.25;
+    sfxGain.gain.value = muted ? 0 : 0.625;
   }
 }
 

@@ -2,8 +2,10 @@ import { COYOTE, FONT, JUMP_BUF, JUMP_VEL, SLIDE_TIME } from './constants';
 import { yawAt } from './path';
 import {
   addCrystals,
+  charge,
   dying,
   falling,
+  grantCharge,
   iframes,
   lane,
   lives,
@@ -30,6 +32,9 @@ export function initDebug(): void {
     if (e.code === 'F2') {
       addCrystals(25);
     }
+    if (e.code === 'F4') {
+      grantCharge();
+    }
     if (e.code === 'F3') {
       showFeel = !showFeel;
     }
@@ -49,8 +54,10 @@ export function frame(): void {
     falling,
     y,
     slide,
+    charge,
     tryJump,
     trySlide,
+    grantCharge,
   };
 }
 

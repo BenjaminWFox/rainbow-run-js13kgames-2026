@@ -1,4 +1,7 @@
 import {
+  CHARGE_COOL,
+  CHARGE_DIST,
+  CHARGE_SPEED,
   COYOTE,
   DEATH_HOLD,
   FALL_TIME,
@@ -16,7 +19,7 @@ import {
   SWOOP_TIME,
 } from './constants';
 import { playFall, playHit, playJump, playLane, playSlide, playWingSave } from './music';
-import { canCancelJump, canCancelSlide, healthRank, jumpBonus, startSpeedBonus } from './save';
+import { canCancelJump, canCancelSlide, healthRank, jumpBonus } from './save';
 
 export let s = 0;
 export let lane = 0;
@@ -32,6 +35,8 @@ export let falling = 0;
 export let swoop = 0;
 export let shield = 0;
 export let wings = 0;
+export let charge = 0;
+export let chargeLockS = 0;
 export let splay = 0;
 
 let vy = 0;
@@ -74,7 +79,7 @@ export function resetPlayer(): void {
   lives = LIVES;
   iframes = 0;
   runCrystals = 0;
-  speed = SPEED_START + startSpeedBonus();
+  speed = SPEED_START;
   coyote = 0;
   jumpBuf = 0;
   slideBuf = 0;
@@ -88,6 +93,8 @@ export function resetPlayer(): void {
   fallY = 0;
   shield = 0;
   wings = 0;
+  charge = 0;
+  chargeLockS = 0;
 }
 
 export function tryLane(dir: number): void {
@@ -96,7 +103,7 @@ export function tryLane(dir: number): void {
   }
   const next = lane + dir;
   if (next < -1 || next > 1) {
-    if (iframes <= 0) {
+    if (charge <= 0 && iframes <= 0) {
       fallDir = dir;
       hit(true);
     }
@@ -164,6 +171,10 @@ export function grantWings(): void {
   wings = 1;
 }
 
+export function grantCharge(): void {
+  charge = CHARGE_DIST;
+}
+
 export function hit(fell: boolean): void {
   if (iframes > 0 || dying > 0) {
     return;
@@ -197,8 +208,17 @@ export function hit(fell: boolean): void {
 }
 
 export function updatePlayer(dt: number): void {
-  const boost = startSpeedBonus();
-  speed = Math.min(SPEED_CAP + boost * 0.4, SPEED_START + boost + s * SPEED_RAMP);
+  if (charge > 0) {
+    speed = CHARGE_SPEED;
+    charge -= speed * dt;
+    if (charge <= 0) {
+      charge = 0;
+      iframes = IFRAMES;
+      chargeLockS = s + CHARGE_COOL;
+    }
+  } else {
+    speed = Math.min(SPEED_CAP, SPEED_START + s * SPEED_RAMP);
+  }
   s += speed * dt;
 
   if (swoop > 0) {
@@ -305,6 +325,6 @@ export function updatePlayer(dt: number): void {
     iframes -= dt;
   }
 
-  const want = slide > 0 || slideBuf > 0 || (y > 0.08 && !dropJump) ? 1 : 0;
+  const want = charge > 0 || slide > 0 || slideBuf > 0 || (y > 0.08 && !dropJump) ? 1 : 0;
   splay += (want - splay) * Math.min(1, (dropJump ? 16 : 12) * dt);
 }

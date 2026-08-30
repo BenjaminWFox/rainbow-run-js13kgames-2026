@@ -6,7 +6,10 @@ import { resetPath, worldPos, yawAt } from './path';
 import {
   addCrystals,
   addLife,
+  charge,
+  chargeLockS,
   dying,
+  grantCharge,
   grantShield,
   grantWings,
   hit,
@@ -21,7 +24,7 @@ import {
   speed,
   y,
 } from './player';
-import { healthRank, magnetReach, shieldRank, wingsRank } from './save';
+import { chargeRank, healthRank, magnetReach, shieldRank, wingsRank } from './save';
 import { beginShadows, endShadows, stampShadow } from './shadow';
 
 const OBS_LOW = 0;
@@ -35,6 +38,7 @@ const TOWER_TOP = 1.9;
 const DROP_SHIELD = 0;
 const DROP_HEART = 1;
 const DROP_WINGS = 2;
+const DROP_CHARGE = 3;
 
 type Obstacle = { s: number; lane: number; kind: number };
 type Crystal = { s: number; x: number; y: number; dead: number };
@@ -58,6 +62,7 @@ const crystals: Crystal[] = [];
 const drops: Drop[] = [];
 const bursts: Burst[] = [];
 const wp = [0, 0, 0];
+let trailAcc = 0;
 
 let nextS = 28;
 /** Still overlapping after iframes — pass through, don't break or hit. */
@@ -68,6 +73,7 @@ export function resetWorld(): void {
   crystals.length = 0;
   drops.length = 0;
   bursts.length = 0;
+  trailAcc = 0;
   nextS = 28;
   pass = false;
   resetPath();
@@ -128,6 +134,9 @@ function spawnGroup(at: number): void {
 }
 
 function spawnDrop(at: number, mask: number): void {
+  if (charge > 0) {
+    return;
+  }
   const open: number[] = [];
   for (let lane = -1; lane <= 1; lane++) {
     if (!(mask & (1 << (lane + 1)))) {
@@ -147,12 +156,21 @@ function spawnDrop(at: number, mask: number): void {
   if (wingsRank()) {
     pool.push(DROP_WINGS);
   }
+  if (chargeRank() && at >= chargeLockS) {
+    pool.push(DROP_CHARGE);
+  }
   if (!pool.length) {
     return;
   }
   const kind = pool[(rand() * pool.length) | 0];
   const rank =
-    kind === DROP_SHIELD ? shieldRank() : kind === DROP_HEART ? healthRank() : wingsRank();
+    kind === DROP_SHIELD
+      ? shieldRank()
+      : kind === DROP_HEART
+        ? healthRank()
+        : kind === DROP_WINGS
+          ? wingsRank()
+          : chargeRank();
   if (rand() > 0.06 + 0.05 * rank) {
     return;
   }
@@ -185,7 +203,8 @@ function addLine(
 
 export function updateWorld(dt: number): void {
   const density = Math.max(8, 15 - s * 0.012);
-  while (nextS < s + 70) {
+  const ahead = Math.max(70, speed * 2.8);
+  while (nextS < s + ahead) {
     spawnGroup(nextS);
     nextS += density + rand() * 5;
   }
@@ -220,6 +239,9 @@ export function updateWorld(dt: number): void {
   collide();
   magnet(dt);
   collectDrops();
+  if (charge > 0) {
+    trailCharge(dt);
+  }
 }
 
 function collectDrops(): void {
@@ -230,7 +252,7 @@ function collectDrops(): void {
     if (d.dead) {
       continue;
     }
-    if (Math.hypot(d.x - laneX, d.s - s, d.y - (y + 0.5)) > 0.95) {
+    if (Math.hypot(d.x - laneX, d.s - s, d.y - (y + 0.5)) > (charge > 0 ? 2.4 : 0.95)) {
       continue;
     }
     if (d.kind === DROP_HEART && lives >= maxLives()) {
@@ -242,29 +264,33 @@ function collectDrops(): void {
       grantShield();
     } else if (d.kind === DROP_HEART) {
       addLife();
-    } else {
+    } else if (d.kind === DROP_WINGS) {
       grantWings();
+    } else {
+      grantCharge();
+      for (const extra of drops) {
+        extra.dead = 1;
+      }
     }
   }
 }
 
-function explode(o: Obstacle): void {
-  const x = o.lane * LANE_W;
-  const y0 =
-    o.kind === OBS_LOW
-      ? 0.25
-      : o.kind === OBS_HIGH
-        ? 0.55
-        : o.kind === OBS_GATE
-          ? 0.7
-          : o.kind === OBS_TOWER
-            ? 0.7
-            : 0.5;
-  for (let i = 0; i < 12; i++) {
-    const col = rgb(RAINBOW[i % 7]);
+/** r < 0: rainbow palette. Else a single RGB color. */
+function burst(
+  s0: number,
+  x0: number,
+  y0: number,
+  n: number,
+  r: number,
+  g: number,
+  b: number,
+  scale: number
+): void {
+  for (let i = 0; i < n; i++) {
+    const col = r < 0 ? rgb(RAINBOW[i % 7]) : [r, g, b];
     bursts.push({
-      s: o.s,
-      x: x + (rand() - 0.5) * 0.35,
+      s: s0,
+      x: x0 + (rand() - 0.5) * 0.35,
       y: y0 + rand() * 0.25,
       vs: (rand() - 0.5) * 8,
       vx: (rand() - 0.5) * 7,
@@ -273,9 +299,41 @@ function explode(o: Obstacle): void {
       r: col[0],
       g: col[1],
       b: col[2],
-      size: 0.1 + rand() * 0.14,
+      size: (0.1 + rand() * 0.14) * scale,
     });
   }
+}
+
+function explode(o: Obstacle): void {
+  const x = o.lane * LANE_W;
+  let y0 = 0.5;
+  let r = 0.28;
+  let g = 0.12;
+  let b = 0.16;
+  if (o.kind === OBS_LOW) {
+    y0 = 0.25;
+    r = 0.18;
+    g = 0.16;
+    b = 0.22;
+  } else if (o.kind === OBS_HIGH) {
+    y0 = 0.55;
+    r = 0.2;
+    g = 0.18;
+    b = 0.26;
+  } else if (o.kind === OBS_GATE || o.kind === OBS_TOWER) {
+    y0 = 0.7;
+    r = 0.3;
+    g = 0.1;
+    b = 0.14;
+  }
+  burst(o.s, x, y0, 12, r, g, b, 1);
+}
+
+function takeCrystal(c: Crystal): void {
+  c.dead = 1;
+  addCrystals(1);
+  playCrystal();
+  burst(c.s, c.x, c.y, 8, -1, 0, 0, 0.5);
 }
 
 function overlapAt(): number {
@@ -309,8 +367,35 @@ function overlapAt(): number {
   return -1;
 }
 
+function smashCharge(): void {
+  const back = s - speed * 0.05 - HIT_LEN;
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const o = obstacles[i];
+    if (o.s < back || o.s > s + HIT_LEN) {
+      continue;
+    }
+    if (Math.abs(o.lane * LANE_W - laneX) > LANE_W * 0.5) {
+      continue;
+    }
+    explode(o);
+    obstacles.splice(i, 1);
+  }
+}
+
+function trailCharge(dt: number): void {
+  trailAcc += speed * dt;
+  while (trailAcc > 0.45) {
+    trailAcc -= 0.45;
+    burst(s - 1.05, laneX + (rand() - 0.5) * 0.25, y + 0.28 + rand() * 0.2, 2, -1, 0, 0, 0.5);
+  }
+}
+
 function collide(): void {
   if (dying > 0) {
+    return;
+  }
+  if (charge > 0) {
+    smashCharge();
     return;
   }
   const i = overlapAt();
@@ -348,10 +433,8 @@ function magnet(dt: number): void {
     const dx = c.x - laneX;
     const ds = c.s - s;
     const dy = c.y - (y + 0.5);
-    if (Math.hypot(dx, ds, dy) < 0.85) {
-      c.dead = 1;
-      addCrystals(1);
-      playCrystal();
+    if (Math.hypot(dx, ds, dy) < (charge > 0 ? 2.2 : 0.85)) {
+      takeCrystal(c);
       continue;
     }
     if (span < 0) {
@@ -362,9 +445,7 @@ function magnet(dt: number): void {
       continue;
     }
     if (Math.hypot(dx, ds) < catchR) {
-      c.dead = 1;
-      addCrystals(1);
-      playCrystal();
+      takeCrystal(c);
       continue;
     }
     if (Math.abs(ds) > 4.5) {
@@ -446,6 +527,13 @@ export function drawWorld(view: Float32Array): void {
     if (d.kind === DROP_SHIELD) {
       worldPos(d.s, d.x, d.y, wp);
       drawOct(view, wp[0], wp[1], wp[2], 0.5, spin, 0.42, 0.42, 0.42, 1, 0.82, 0.2);
+    } else if (d.kind === DROP_CHARGE) {
+      const col = rgb(RAINBOW[((s * 1.5) | 0) % 7]);
+      br = col[0];
+      bg = col[1];
+      bb = col[2];
+      worldPos(d.s, d.x, d.y, wp);
+      drawOct(view, wp[0], wp[1], wp[2], 0.7, spin, 0.3, 0.52, 0.3, br, bg, bb);
     } else if (d.kind === DROP_HEART) {
       br = 1;
       bg = 0.35;
