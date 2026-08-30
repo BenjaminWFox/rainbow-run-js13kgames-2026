@@ -43,6 +43,7 @@ import {
 } from './player';
 import { drawRoad } from './road';
 import { drawStars, updateStars } from './stars';
+import { initLadder } from './ladder';
 import { loadSave } from './save';
 import {
   drawUi,
@@ -54,6 +55,7 @@ import {
   SCENE_DEATH,
   SCENE_PAUSE,
   SCENE_RUN,
+  SCENE_SCORES,
   SCENE_SHOP,
   SCENE_TITLE,
   scene,
@@ -74,10 +76,17 @@ let onMenu = true;
 let last = 0;
 let debug: typeof import('./debug') | undefined;
 
+function viewSize(): { w: number; h: number } {
+  const vv = window.visualViewport;
+  if (vv) {
+    return { w: vv.width, h: vv.height };
+  }
+  return { w: window.innerWidth, h: window.innerHeight };
+}
+
 function resize(): void {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const { w, h } = viewSize();
   for (const el of [canvas, uiCanvas]) {
     el.width = (w * dpr) | 0;
     el.height = (h * dpr) | 0;
@@ -203,7 +212,7 @@ function frame(now: number): void {
     handleTap(tapX, tapY);
   }
 
-  const menu = scene === SCENE_TITLE || scene === SCENE_SHOP;
+  const menu = scene === SCENE_TITLE || scene === SCENE_SHOP || scene === SCENE_SCORES;
   if (scene === SCENE_RUN) {
     runInput();
     updatePlayer(dt);
@@ -233,6 +242,7 @@ function frame(now: number): void {
 
 async function main(): Promise<void> {
   loadSave();
+  initLadder();
   initGl(canvas);
   setSky(SKY_R, SKY_G, SKY_B);
   initInput(uiCanvas);
@@ -240,6 +250,7 @@ async function main(): Promise<void> {
   resetPlayer();
   resetWorld();
   window.addEventListener('resize', resize);
+  window.visualViewport?.addEventListener('resize', resize);
   resize();
   if (import.meta.env.DEV) {
     debug = await import('./debug');
