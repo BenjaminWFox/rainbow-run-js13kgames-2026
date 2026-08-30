@@ -135,7 +135,7 @@ export function syncMusic(running: boolean, paused: boolean, dt: number): void {
 }
 
 export function playCrystal(): void {
-  playSfx(PICKUP);
+  playSfx(PICKUP, 0.375);
 }
 
 export function playPowerup(): void {
