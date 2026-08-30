@@ -26,43 +26,72 @@ export const shopRanks = [0, 0, 0, 0, 0, 0, 0, 0];
 export let banked = 0;
 export let best = 0;
 export let muted = false;
+export let playerId = '';
+export let playerName = '';
 
 const KEY = 'rr';
+export const NAME_MAX = 13;
+
+function newPlayerId(): string {
+  const bytes = new Uint8Array(4);
+  crypto.getRandomValues(bytes);
+  let id = '';
+  for (let i = 0; i < bytes.length; i++) {
+    id += bytes[i].toString(16).padStart(2, '0');
+  }
+  return id.toUpperCase();
+}
+
+export function playerLabel(): string {
+  return playerName || playerId;
+}
+
+export function setPlayerName(raw: string): void {
+  playerName = raw.replace(/[^\w\- ]+/g, '').trim().slice(0, NAME_MAX);
+  saveGame();
+}
 
 export function loadSave(): void {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) {
-      return;
-    }
-    const data = JSON.parse(raw) as {
-      c?: number;
-      b?: number;
-      r?: number[];
-      m?: boolean;
-      v?: number;
-    };
-    banked = (data.c ?? 0) | 0;
-    best = (data.b ?? 0) | 0;
-    muted = !!data.m;
-    const ranks = data.r;
-    if (Array.isArray(ranks)) {
-      if ((data.v ?? 1) < 2) {
-        shopRanks[0] = clampRank(0, ranks[2]);
-        shopRanks[1] = clampRank(1, ranks[1]);
-        shopRanks[2] = 0;
-        for (let i = 3; i < SHOP_ROWS; i++) {
-          shopRanks[i] = clampRank(i, ranks[i]);
-        }
-        saveGame();
-      } else {
-        for (let i = 0; i < SHOP_ROWS; i++) {
-          shopRanks[i] = clampRank(i, ranks[i]);
+    if (raw) {
+      const data = JSON.parse(raw) as {
+        c?: number;
+        b?: number;
+        r?: number[];
+        m?: boolean;
+        v?: number;
+        i?: string;
+        n?: string;
+      };
+      banked = (data.c ?? 0) | 0;
+      best = (data.b ?? 0) | 0;
+      muted = !!data.m;
+      playerId = data.i && data.i.length ? data.i : '';
+      playerName = data.n ? String(data.n).slice(0, NAME_MAX) : '';
+      const ranks = data.r;
+      if (Array.isArray(ranks)) {
+        if ((data.v ?? 1) < 2) {
+          shopRanks[0] = clampRank(0, ranks[2]);
+          shopRanks[1] = clampRank(1, ranks[1]);
+          shopRanks[2] = 0;
+          for (let i = 3; i < SHOP_ROWS; i++) {
+            shopRanks[i] = clampRank(i, ranks[i]);
+          }
+          saveGame();
+        } else {
+          for (let i = 0; i < SHOP_ROWS; i++) {
+            shopRanks[i] = clampRank(i, ranks[i]);
+          }
         }
       }
     }
   } catch {
     // private mode / corrupt
+  }
+  if (!playerId) {
+    playerId = newPlayerId();
+    saveGame();
   }
 }
 
@@ -71,7 +100,10 @@ function clampRank(row: number, n: number | undefined): number {
 }
 
 function saveGame(): void {
-  localStorage.setItem(KEY, JSON.stringify({ v: 2, c: banked, b: best, r: shopRanks, m: muted }));
+  localStorage.setItem(
+    KEY,
+    JSON.stringify({ v: 2, c: banked, b: best, r: shopRanks, m: muted, i: playerId, n: playerName })
+  );
 }
 
 export function setMuted(value: boolean): void {

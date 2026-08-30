@@ -7,7 +7,11 @@ import {
   banked,
   best,
   muted,
+  NAME_MAX,
   noteBest,
+  playerId,
+  playerName,
+  setPlayerName,
   SHOP_CAPS,
   SHOP_FLAVOR,
   SHOP_NAMES,
@@ -17,6 +21,7 @@ import {
   shopRanks,
   tryBuy,
 } from './save';
+import { boardRows, publishName, publishScore } from './ladder';
 import { resetWorld } from './world';
 
 export const SCENE_TITLE = 0;
@@ -24,12 +29,13 @@ export const SCENE_RUN = 1;
 export const SCENE_PAUSE = 2;
 export const SCENE_DEATH = 3;
 export const SCENE_SHOP = 4;
+export const SCENE_SCORES = 5;
 
 export let scene = SCENE_TITLE;
 let cssW = 1;
 export let cssH = 1;
 
-let focus = 0;
+let focus = 1;
 let shopSel = 0;
 let newBest = false;
 let lastDist = 0;
@@ -45,6 +51,10 @@ type Btn = { x: number; y: number; w: number; h: number; label: string; id: numb
 const btns: Btn[] = [];
 const pauseBtn = { x: 14, y: 12, w: 48, h: 40 };
 let flavorBox = { x: 0, y: 0, w: 0, h: 0 };
+const board = { l: 0, r: 0, y: 0, h: 0 };
+const nameBox = { x: 0, y: 0, w: 0, h: 0 };
+let nameField: HTMLInputElement | undefined;
+let nameFieldOpen = false;
 
 export function setViewSize(w: number, h: number): void {
   cssW = w;
@@ -63,6 +73,9 @@ export function finishRun(showDeath: boolean): void {
   lastDist = s | 0;
   lastGems = runCrystals;
   newBest = noteBest(lastDist);
+  if (newBest) {
+    publishScore();
+  }
   scene = showDeath ? SCENE_DEATH : SCENE_TITLE;
   focus = 0;
 }
@@ -104,11 +117,16 @@ function plate(
   ctx.fillText(text, drawX, y);
 }
 
+function titleWidth(ctx: CanvasRenderingContext2D, text: string, size: number): number {
+  ctx.font = '800 ' + size + 'px ' + FONT;
+  return ctx.measureText(text).width;
+}
+
 function rainbowTitle(ctx: CanvasRenderingContext2D, text: string, y: number, size: number): void {
   ctx.font = '800 ' + size + 'px ' + FONT;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  const total = ctx.measureText(text).width;
+  const total = titleWidth(ctx, text, size);
   let x = cssW * 0.5 - total * 0.5;
   let ci = 0;
   for (const ch of text) {
@@ -123,6 +141,75 @@ function rainbowTitle(ctx: CanvasRenderingContext2D, text: string, y: number, si
       ci++;
     }
   }
+}
+
+function ladderLine(rank: number, row: { n: string; s: number } | undefined): string {
+  return row ? rank + '  ' + row.s + ' - ' + row.n : rank + '  ...';
+}
+
+function drawLadder(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  right: number,
+  y: number,
+  slots: number
+): number {
+  const cols = slots > 5 ? 2 : 1;
+  const perCol = slots / cols;
+  const size = slots > 5 ? 15 : 16;
+  const lineH = slots > 5 ? 22 : 24;
+  const padX = 14;
+  const padY = 10;
+  const rows = boardRows(slots);
+  ctx.font = '600 ' + size + 'px ' + FONT;
+  let w = right - left;
+  if (cols === 1) {
+    let maxW = 0;
+    for (let i = 0; i < slots; i++) {
+      maxW = Math.max(maxW, ctx.measureText(ladderLine(i + 1, rows[i])).width);
+    }
+    w = maxW + padX * 2;
+    left = (left + right - w) * 0.5;
+  }
+  const h = lineH * perCol + padY * 2;
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  roundRect(ctx, left, y, w, h, 10);
+  ctx.fill();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  if (slots === 5) {
+    board.l = left;
+    board.r = left + w;
+  }
+  for (let c = 0; c < cols; c++) {
+    const x = left + padX + c * (w * 0.5);
+    for (let i = 0; i < perCol; i++) {
+      const rank = c * perCol + i + 1;
+      const ly = y + padY + lineH * (i + 0.5);
+      drawLadderSlot(ctx, x, ly, lineH, rank, rows[rank - 1]);
+    }
+  }
+  return h;
+}
+
+function drawLadderSlot(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  lineH: number,
+  rank: number,
+  row: { n: string; s: number; self: boolean } | undefined
+): void {
+  const self = !!row?.self;
+  const label = ladderLine(rank, row);
+  if (self) {
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    roundRect(ctx, x - 6, y - lineH * 0.5 + 2, tw + 12, lineH - 4, 6);
+    ctx.fill();
+  }
+  ctx.fillStyle = self ? '#111' : '#fff';
+  ctx.fillText(label, x, y);
 }
 
 function drawFlavor(ctx: CanvasRenderingContext2D, text: string): void {
@@ -164,6 +251,75 @@ function addBtn(x: number, y: number, w: number, h: number, label: string, id: n
   btns.push({ x, y, w, h, label, id });
 }
 
+function goTitle(): void {
+  scene = SCENE_TITLE;
+  focus = 1;
+}
+
+function commitName(): void {
+  if (nameField) {
+    setPlayerName(nameField.value);
+    nameField.value = playerName;
+    publishName();
+  }
+}
+
+function ensureNameField(): HTMLInputElement {
+  if (nameField) {
+    return nameField;
+  }
+  const el = document.createElement('input');
+  el.id = 'name';
+  el.maxLength = NAME_MAX;
+  el.autocomplete = 'off';
+  el.spellcheck = false;
+  el.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.code === 'Enter') {
+      e.preventDefault();
+      commitName();
+      el.blur();
+    }
+    if (e.code === 'Escape') {
+      e.preventDefault();
+      el.blur();
+      goTitle();
+    }
+  });
+  el.addEventListener('blur', () => {
+    window.scrollTo(0, 0);
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      window.dispatchEvent(new Event('resize'));
+    });
+  });
+  document.body.appendChild(el);
+  nameField = el;
+  return el;
+}
+
+function syncNameField(): void {
+  const show = scene === SCENE_SCORES;
+  const el = ensureNameField();
+  el.style.display = show ? 'block' : 'none';
+  el.placeholder = playerId;
+  if (show) {
+    el.style.left = nameBox.x + 'px';
+    el.style.top = nameBox.y + 'px';
+    el.style.width = nameBox.w + 'px';
+    el.style.height = nameBox.h + 'px';
+    if (!nameFieldOpen) {
+      el.value = playerName;
+      nameFieldOpen = true;
+    }
+  } else {
+    if (nameFieldOpen && document.activeElement === el) {
+      el.blur();
+    }
+    nameFieldOpen = false;
+  }
+}
+
 function layout(): void {
   btns.length = 0;
   const cx = cssW * 0.5;
@@ -174,7 +330,12 @@ function layout(): void {
     const smallH = 52;
     const gap = 6;
     const startH = 44;
-    const startY = titleHoofY > 8 ? titleHoofY + 31 : cssH * 0.62;
+    const hsW = board.r > board.l ? board.r - board.l : bw;
+    const hsX = board.r > board.l ? board.l : cx - hsW * 0.5;
+    const hsY = board.h ? board.y + board.h + 10 : cssH * 0.4;
+    addBtn(hsX, hsY, hsW, startH, 'HIGH SCORES', 3);
+    const hoofY = titleHoofY > 8 ? titleHoofY + 31 : cssH * 0.62;
+    const startY = Math.max(hoofY, hsY + startH + gap);
     addBtn(cx - bw * 0.5, startY, bw, startH, 'START', 0);
     const rowY = startY + startH + gap;
     const rowW = smallW * 2 + gap;
@@ -187,6 +348,17 @@ function layout(): void {
       muted ? 'SOUND: OFF' : 'SOUND: ON',
       2
     );
+  } else if (scene === SCENE_SCORES) {
+    const colW = Math.min(220, cssW * 0.44);
+    const gap = 8;
+    const left = cx - colW - gap * 0.5;
+    const setW = Math.min(100, colW * 0.42);
+    nameBox.x = left;
+    nameBox.y = cssH * 0.16;
+    nameBox.w = colW * 2 + gap - setW - gap;
+    nameBox.h = 44;
+    addBtn(left + nameBox.w + gap, nameBox.y, setW, nameBox.h, 'SET', 0);
+    addBtn(left, cssH * 0.88, colW * 2 + gap, bh, 'BACK', 1);
   } else if (scene === SCENE_PAUSE) {
     addBtn(cx - bw * 0.5, cssH * 0.42, bw, bh, 'RESUME', 0);
     addBtn(cx - bw * 0.5, cssH * 0.42 + 66, bw, bh, 'QUIT', 1);
@@ -231,7 +403,10 @@ function drawBtn(ctx: CanvasRenderingContext2D, b: Btn, selected: boolean): void
     '700 ' +
     (b.label === 'START'
       ? 28
-      : b.label === 'UPGRADES' || b.label.startsWith('SOUND')
+      : b.label === 'UPGRADES' ||
+          b.label === 'HIGH SCORES' ||
+          b.label === 'SET' ||
+          b.label.startsWith('SOUND')
         ? 18
         : scene === SCENE_SHOP && b.id < SHOP_ROWS
           ? 15
@@ -292,6 +467,17 @@ function activate(id: number): void {
     } else if (id === 2) {
       setMuted(!muted);
       applyMute();
+    } else if (id === 3) {
+      scene = SCENE_SCORES;
+      focus = 0;
+    }
+    return;
+  }
+  if (scene === SCENE_SCORES) {
+    if (id === 0) {
+      commitName();
+    } else {
+      goTitle();
     }
     return;
   }
@@ -309,8 +495,7 @@ function activate(id: number): void {
       return;
     }
     if (id === 20) {
-      scene = SCENE_TITLE;
-      focus = 0;
+      goTitle();
       return;
     }
     if (id === 21 && tryBuy(shopSel)) {
@@ -321,8 +506,7 @@ function activate(id: number): void {
 
 export function handleTap(x: number, y: number): void {
   if (scene === SCENE_DEATH) {
-    scene = SCENE_TITLE;
-    focus = 0;
+    goTitle();
     return;
   }
   if (scene === SCENE_RUN) {
@@ -341,10 +525,13 @@ export function handleTap(x: number, y: number): void {
 
 export function handleMenuKey(code: string): void {
   if (scene === SCENE_DEATH) {
-    scene = SCENE_TITLE;
+    goTitle();
     return;
   }
   if (scene === SCENE_RUN) {
+    return;
+  }
+  if (document.activeElement === nameField) {
     return;
   }
   layout();
@@ -353,13 +540,13 @@ export function handleMenuKey(code: string): void {
   }
   if (scene === SCENE_TITLE) {
     if (code === 'ArrowDown' || code === 'KeyS') {
-      focus = focus === 0 ? 1 : 0;
+      focus = focus <= 0 ? 1 : focus === 1 ? 2 : focus;
     } else if (code === 'ArrowUp' || code === 'KeyW') {
-      focus = focus === 0 ? 1 : 0;
+      focus = focus >= 2 ? 1 : focus === 1 ? 0 : focus;
     } else if (code === 'ArrowLeft' || code === 'KeyA') {
-      focus = 1;
+      focus = focus === 3 ? 2 : focus === 1 ? 0 : focus;
     } else if (code === 'ArrowRight' || code === 'KeyD') {
-      focus = 2;
+      focus = focus === 2 ? 3 : focus === 0 ? 1 : focus;
     }
   } else if (scene === SCENE_SHOP) {
     const last = btns.length - 1;
@@ -393,12 +580,11 @@ export function handleMenuKey(code: string): void {
     }
   } else if (code === 'Enter' || code === 'Space') {
     activate(btns[focus].id);
-  } else if (code === 'Escape' && (scene === SCENE_SHOP || scene === SCENE_PAUSE)) {
+  } else if (code === 'Escape' && (scene === SCENE_SHOP || scene === SCENE_PAUSE || scene === SCENE_SCORES)) {
     if (scene === SCENE_PAUSE) {
       resumeGame();
     } else {
-      scene = SCENE_TITLE;
-      focus = 0;
+      goTitle();
     }
   }
 }
@@ -442,9 +628,30 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
   }
 
   if (scene === SCENE_TITLE) {
-    rainbowTitle(ctx, 'RAINBOW RUN', cssH * 0.18 - 50, Math.min(72, cssW * 0.12));
-    plate(ctx, 'BEST  ' + best + ' m', cssW * 0.5, cssH * 0.28 - 50, 22, 'center');
-    plate(ctx, 'CRYSTALS  ' + banked, cssW * 0.5, cssH * 0.28 + 20, 20, 'center', '#7ef');
+    const title = 'RAINBOW RUN';
+    const titleSize = Math.min(72, cssW * 0.12);
+    const titleY = cssH * 0.18 - 50;
+    const titleW = titleWidth(ctx, title, titleSize);
+    const titleL = cssW * 0.5 - titleW * 0.5;
+    const titleR = titleL + titleW;
+    rainbowTitle(ctx, title, titleY, titleSize);
+    const statsY = titleY + titleSize * 0.5 + 36;
+    plate(ctx, 'BEST  ' + best + ' m', titleL, statsY, 20, 'left');
+    plate(ctx, 'CRYSTALS  ' + banked, titleR, statsY, 20, 'right', '#7ef');
+    board.l = titleL;
+    board.r = titleR;
+    board.y = statsY + 40;
+    board.h = drawLadder(ctx, titleL, titleR, board.y, 5);
+  }
+
+  if (scene === SCENE_SCORES) {
+    const cx = cssW * 0.5;
+    const colW = Math.min(220, cssW * 0.44);
+    const gap = 8;
+    const left = cx - colW - gap * 0.5;
+    const right = left + colW * 2 + gap;
+    plate(ctx, 'HIGH SCORES', cx, cssH * 0.08, 28, 'center');
+    drawLadder(ctx, left, right, nameBox.y + nameBox.h + 14, 20);
   }
 
   if (scene === SCENE_SHOP) {
@@ -481,4 +688,5 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
       drawBtn(ctx, b, on);
     }
   }
+  syncNameField();
 }
