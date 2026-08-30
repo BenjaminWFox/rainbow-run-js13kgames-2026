@@ -1,6 +1,6 @@
 import { CHARGE_DIST, FONT, RAINBOW } from './constants';
 import { rgb } from './math';
-import { applyMute, playPowerup } from './music';
+import { applyMute, playCrystal, playHit, playPowerup } from './music';
 import { charge, iframes, lives, resetPlayer, runCrystals, s } from './player';
 import {
   addBank,
@@ -456,7 +456,35 @@ function pickBtn(x: number, y: number): number {
   return -1;
 }
 
+function buySelected(): void {
+  if (shopRanks[shopSel] >= SHOP_CAPS[shopSel]) {
+    playHit();
+    return;
+  }
+  playCrystal();
+  if (tryBuy(shopSel)) {
+    playPowerup();
+  }
+}
+
 function activate(id: number): void {
+  if (scene === SCENE_TITLE && id === 2) {
+    if (muted) {
+      setMuted(false);
+      applyMute();
+      playCrystal();
+    } else {
+      playCrystal();
+      setMuted(true);
+      applyMute();
+    }
+    return;
+  }
+  if (scene === SCENE_SHOP && id === 21) {
+    buySelected();
+    return;
+  }
+  playCrystal();
   if (scene === SCENE_TITLE) {
     if (id === 0) {
       startRun();
@@ -464,9 +492,6 @@ function activate(id: number): void {
       scene = SCENE_SHOP;
       focus = 0;
       shopSel = 0;
-    } else if (id === 2) {
-      setMuted(!muted);
-      applyMute();
     } else if (id === 3) {
       scene = SCENE_SCORES;
       focus = 0;
@@ -496,10 +521,6 @@ function activate(id: number): void {
     }
     if (id === 20) {
       goTitle();
-      return;
-    }
-    if (id === 21 && tryBuy(shopSel)) {
-      playPowerup();
     }
   }
 }
@@ -511,6 +532,7 @@ export function handleTap(x: number, y: number): void {
   }
   if (scene === SCENE_RUN) {
     if (hitPause(x, y)) {
+      playCrystal();
       pauseGame();
     }
     return;
@@ -575,8 +597,8 @@ export function handleMenuKey(code: string): void {
     const id = btns[focus].id;
     if (id === 20) {
       activate(id);
-    } else if (tryBuy(shopSel)) {
-      playPowerup();
+    } else {
+      buySelected();
     }
   } else if (code === 'Enter' || code === 'Space') {
     activate(btns[focus].id);

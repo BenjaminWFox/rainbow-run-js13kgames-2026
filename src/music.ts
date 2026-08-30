@@ -139,7 +139,7 @@ export function playCrystal(): void {
 }
 
 export function playPowerup(): void {
-  playSfx(POWERUP);
+  playSfx(POWERUP, .75);
 }
 
 export function playSlide(): void {
