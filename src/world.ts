@@ -123,7 +123,7 @@ function spawnGroup(at: number): void {
   for (let lane = -1; lane <= 1; lane++) {
     const blocked = !!(mask & (1 << (lane + 1)));
     if (kind === OBS_LOW && blocked) {
-      addLine(at, lane, 5, 4.2, 0.5, 1.15);
+      addLine(at, lane, 5, 6.4, 0.5, 1.15);
     } else if (duck && blocked) {
       addLine(at, lane, 5, 3.6, 0.5, -0.28);
     } else if (!blocked && rand() < 0.55) {

@@ -127,12 +127,12 @@ function drawSaveStats(
 
 function addScoreChrome(nameY: number, foot: string): void {
   const { l, r } = scoreBox();
-  const setW = Math.min(100, (r - l) * 0.21);
+  const setW = Math.min(148, (r - l) * 0.4);
   nameBox.x = l;
   nameBox.y = nameY;
   nameBox.w = r - l - setW - 8;
   nameBox.h = 44;
-  addBtn(l + nameBox.w + 8, nameY, setW, nameBox.h, 'SET', 0);
+  addBtn(l + nameBox.w + 8, nameY, setW, nameBox.h, 'UPDATE NAME', 0);
   if (foot) {
     addBtn(l, cssH * 0.88, r - l, 52, foot, 1);
   }
@@ -438,7 +438,7 @@ function drawBtn(ctx: CanvasRenderingContext2D, b: Btn, selected: boolean): void
       ? 28
       : b.label === '🔈' || b.label === '🔇'
         ? 24
-        : b.label === 'UPGRADES' || b.label === 'HIGH SCORES' || b.label === 'SET'
+        : b.label === 'UPGRADES' || b.label === 'HIGH SCORES' || b.label === 'UPDATE NAME'
           ? 18
           : scene === SCENE_SHOP && b.id < SHOP_ROWS
             ? 15
