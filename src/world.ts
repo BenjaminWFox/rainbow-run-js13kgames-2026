@@ -440,8 +440,7 @@ function magnet(dt: number): void {
   if (offTrack()) {
     return;
   }
-  const reach = magnetReach();
-  const span = reach - 1;
+  const span = magnetReach();
   const catchR = 1.15 + speed * 0.1;
   const aimS = s + speed * 0.12;
   for (const c of crystals) {
@@ -453,9 +452,6 @@ function magnet(dt: number): void {
     const dy = c.y - (y + 0.5);
     if (Math.hypot(dx, ds, dy) < (charge > 0 ? 2.2 : 0.85)) {
       takeCrystal(c);
-      continue;
-    }
-    if (span < 0) {
       continue;
     }
     const cLane = Math.round(c.x / LANE_W);

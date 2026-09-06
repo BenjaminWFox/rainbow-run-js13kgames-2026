@@ -19,7 +19,7 @@ export const SHOP_FLAVOR = [
   'X-Slide: Jump while sliding to stand early!',
 ];
 export const SHOP_ROWS = SHOP_NAMES.length;
-export const SHOP_CAPS = [3, 3, 3, 3, 3, 3, 1, 1];
+export const SHOP_CAPS = [2, 3, 3, 3, 3, 3, 1, 1];
 export const SHOP_PRICES = [100, 100, 200, 200, 200, 200, 300, 300];
 
 export const shopRanks = [0, 0, 0, 0, 0, 0, 0, 0];
@@ -151,7 +151,7 @@ export function jumpBonus(): number {
   return 1 + 0.12 * shopRanks[1];
 }
 
-/** 0 = off, 1 = current lane, 2 = adjacent, 3 = all lanes. */
+/** 0 = current lane, 1 = adjacent, 2 = all lanes. */
 export function magnetReach(): number {
   return shopRanks[0];
 }
