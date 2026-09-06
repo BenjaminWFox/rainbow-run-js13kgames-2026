@@ -1,6 +1,6 @@
 import { best, NAME_MAX, playerId, playerLabel, playerName } from './save';
 
-const KEY = 'rrL';
+const KEY = 'rr26bwfL';
 const CAP = 20;
 const MAX_SCORE = 1e6;
 const PULSE_MS = 3000;

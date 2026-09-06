@@ -29,7 +29,7 @@ export let muted = false;
 export let playerId = '';
 export let playerName = '';
 
-const KEY = 'rr';
+const KEY = 'rr26bwf';
 export const NAME_MAX = 13;
 
 function newPlayerId(): string {
@@ -100,10 +100,14 @@ function clampRank(row: number, n: number | undefined): number {
 }
 
 function saveGame(): void {
-  localStorage.setItem(
-    KEY,
-    JSON.stringify({ v: 2, c: banked, b: best, r: shopRanks, m: muted, i: playerId, n: playerName })
-  );
+  try {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ v: 2, c: banked, b: best, r: shopRanks, m: muted, i: playerId, n: playerName })
+    );
+  } catch {
+    // private mode / quota
+  }
 }
 
 export function setMuted(value: boolean): void {
