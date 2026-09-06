@@ -35,12 +35,14 @@ export let scene = SCENE_TITLE;
 let cssW = 1;
 export let cssH = 1;
 
-let focus = 1;
+let focus = 0;
 let shopSel = 0;
 let newBest = false;
 let lastDist = 0;
 let lastGems = 0;
 let titleHoofY = 0;
+let deathAt = 0;
+const DEATH_WAIT = 1250;
 
 export function setTitleHoofY(y: number): void {
   titleHoofY = y;
@@ -51,7 +53,6 @@ type Btn = { x: number; y: number; w: number; h: number; label: string; id: numb
 const btns: Btn[] = [];
 const pauseBtn = { x: 14, y: 12, w: 48, h: 40 };
 let flavorBox = { x: 0, y: 0, w: 0, h: 0 };
-const board = { l: 0, r: 0, y: 0, h: 0 };
 const nameBox = { x: 0, y: 0, w: 0, h: 0 };
 let nameField: HTMLInputElement | undefined;
 let nameFieldOpen = false;
@@ -76,8 +77,17 @@ export function finishRun(showDeath: boolean): void {
   if (newBest) {
     publishScore();
   }
-  scene = showDeath ? SCENE_DEATH : SCENE_TITLE;
+  if (showDeath) {
+    deathAt = Date.now();
+    scene = SCENE_DEATH;
+  } else {
+    scene = SCENE_TITLE;
+  }
   focus = 0;
+}
+
+function deathReady(): boolean {
+  return Date.now() - deathAt >= DEATH_WAIT;
 }
 
 export function pauseGame(): void {
@@ -91,6 +101,46 @@ export function resumeGame(): void {
   if (scene === SCENE_PAUSE) {
     scene = SCENE_RUN;
   }
+}
+
+function scoreBox(): { l: number; r: number } {
+  const w = Math.min(220, cssW * 0.44);
+  const g = 8;
+  const l = cssW * 0.5 - w - g * 0.5;
+  return { l, r: l + w * 2 + g };
+}
+
+function drawSaveStats(
+  ctx: CanvasRenderingContext2D,
+  l: number,
+  r: number,
+  y: number,
+  run?: 1
+): void {
+  plate(ctx, 'BEST  ' + best + ' m', l, y, 20, 'left');
+  plate(ctx, 'CRYSTALS  ' + banked, r, y, 20, 'right', '#7ef');
+  if (run) {
+    plate(ctx, lastDist + ' m', l, y + 38, 20, 'left', newBest ? '#ffd24a' : '#fff');
+    plate(ctx, '+' + lastGems, r, y + 38, 20, 'right', '#7ef');
+  }
+}
+
+function addScoreChrome(nameY: number, foot: string): void {
+  const { l, r } = scoreBox();
+  const setW = Math.min(100, (r - l) * 0.21);
+  nameBox.x = l;
+  nameBox.y = nameY;
+  nameBox.w = r - l - setW - 8;
+  nameBox.h = 44;
+  addBtn(l + nameBox.w + 8, nameY, setW, nameBox.h, 'SET', 0);
+  if (foot) {
+    addBtn(l, cssH * 0.88, r - l, 52, foot, 1);
+  }
+}
+
+function drawScoreBoard(ctx: CanvasRenderingContext2D): void {
+  const { l, r } = scoreBox();
+  drawLadder(ctx, l, r, nameBox.y + nameBox.h + 14, 20);
 }
 
 function plate(
@@ -177,10 +227,6 @@ function drawLadder(
   ctx.fill();
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  if (slots === 5) {
-    board.l = left;
-    board.r = left + w;
-  }
   for (let c = 0; c < cols; c++) {
     const x = left + padX + c * (w * 0.5);
     for (let i = 0; i < perCol; i++) {
@@ -253,7 +299,7 @@ function addBtn(x: number, y: number, w: number, h: number, label: string, id: n
 
 function goTitle(): void {
   scene = SCENE_TITLE;
-  focus = 1;
+  focus = 0;
 }
 
 function commitName(): void {
@@ -283,7 +329,9 @@ function ensureNameField(): HTMLInputElement {
     if (e.code === 'Escape') {
       e.preventDefault();
       el.blur();
-      goTitle();
+      if (scene !== SCENE_DEATH || deathReady()) {
+        goTitle();
+      }
     }
   });
   el.addEventListener('blur', () => {
@@ -299,7 +347,7 @@ function ensureNameField(): HTMLInputElement {
 }
 
 function syncNameField(): void {
-  const show = scene === SCENE_SCORES;
+  const show = scene === SCENE_SCORES || scene === SCENE_DEATH;
   const el = ensureNameField();
   el.style.display = show ? 'block' : 'none';
   el.placeholder = playerId;
@@ -326,39 +374,24 @@ function layout(): void {
   const bw = Math.min(320, cssW * 0.7);
   const bh = 52;
   if (scene === SCENE_TITLE) {
-    const smallW = Math.min(148, cssW * 0.28 + 20);
+    const muteW = 56;
+    const smallW = Math.min(160, (Math.min(cssW * 0.92, 420) - muteW - 12) * 0.5);
     const smallH = 52;
     const gap = 6;
     const startH = 44;
-    const hsW = board.r > board.l ? board.r - board.l : bw;
-    const hsX = board.r > board.l ? board.l : cx - hsW * 0.5;
-    const hsY = board.h ? board.y + board.h + 10 : cssH * 0.4;
-    addBtn(hsX, hsY, hsW, startH, 'HIGH SCORES', 3);
     const hoofY = titleHoofY > 8 ? titleHoofY + 31 : cssH * 0.62;
-    const startY = Math.max(hoofY, hsY + startH + gap);
+    const startY = hoofY;
     addBtn(cx - bw * 0.5, startY, bw, startH, 'START', 0);
     const rowY = startY + startH + gap;
-    const rowW = smallW * 2 + gap;
-    addBtn(cx - rowW * 0.5, rowY, smallW, smallH, 'UPGRADES', 1);
-    addBtn(
-      cx - rowW * 0.5 + smallW + gap,
-      rowY,
-      smallW,
-      smallH,
-      muted ? 'SOUND: OFF' : 'SOUND: ON',
-      2
-    );
+    const rowW = smallW * 2 + muteW + gap * 2;
+    const rowX = cx - rowW * 0.5;
+    addBtn(rowX, rowY, smallW, smallH, 'UPGRADES', 1);
+    addBtn(rowX + smallW + gap, rowY, muteW, smallH, muted ? '🔇' : '🔈', 2);
+    addBtn(rowX + smallW + gap + muteW + gap, rowY, smallW, smallH, 'HIGH SCORES', 3);
   } else if (scene === SCENE_SCORES) {
-    const colW = Math.min(220, cssW * 0.44);
-    const gap = 8;
-    const left = cx - colW - gap * 0.5;
-    const setW = Math.min(100, colW * 0.42);
-    nameBox.x = left;
-    nameBox.y = cssH * 0.16;
-    nameBox.w = colW * 2 + gap - setW - gap;
-    nameBox.h = 44;
-    addBtn(left + nameBox.w + gap, nameBox.y, setW, nameBox.h, 'SET', 0);
-    addBtn(left, cssH * 0.88, colW * 2 + gap, bh, 'BACK', 1);
+    addScoreChrome(cssH * 0.16, 'BACK');
+  } else if (scene === SCENE_DEATH) {
+    addScoreChrome(cssH * 0.155 + 70, deathReady() ? 'CONTINUE' : '');
   } else if (scene === SCENE_PAUSE) {
     addBtn(cx - bw * 0.5, cssH * 0.42, bw, bh, 'RESUME', 0);
     addBtn(cx - bw * 0.5, cssH * 0.42 + 66, bw, bh, 'QUIT', 1);
@@ -403,14 +436,13 @@ function drawBtn(ctx: CanvasRenderingContext2D, b: Btn, selected: boolean): void
     '700 ' +
     (b.label === 'START'
       ? 28
-      : b.label === 'UPGRADES' ||
-          b.label === 'HIGH SCORES' ||
-          b.label === 'SET' ||
-          b.label.startsWith('SOUND')
-        ? 18
-        : scene === SCENE_SHOP && b.id < SHOP_ROWS
-          ? 15
-          : 22) +
+      : b.label === '🔈' || b.label === '🔇'
+        ? 24
+        : b.label === 'UPGRADES' || b.label === 'HIGH SCORES' || b.label === 'SET'
+          ? 18
+          : scene === SCENE_SHOP && b.id < SHOP_ROWS
+            ? 15
+            : 22) +
     'px ' +
     FONT;
   ctx.textAlign = 'center';
@@ -498,10 +530,10 @@ function activate(id: number): void {
     }
     return;
   }
-  if (scene === SCENE_SCORES) {
+  if (scene === SCENE_SCORES || scene === SCENE_DEATH) {
     if (id === 0) {
       commitName();
-    } else {
+    } else if (scene !== SCENE_DEATH || deathReady()) {
       goTitle();
     }
     return;
@@ -526,10 +558,6 @@ function activate(id: number): void {
 }
 
 export function handleTap(x: number, y: number): void {
-  if (scene === SCENE_DEATH) {
-    goTitle();
-    return;
-  }
   if (scene === SCENE_RUN) {
     if (hitPause(x, y)) {
       playCrystal();
@@ -546,10 +574,6 @@ export function handleTap(x: number, y: number): void {
 }
 
 export function handleMenuKey(code: string): void {
-  if (scene === SCENE_DEATH) {
-    goTitle();
-    return;
-  }
   if (scene === SCENE_RUN) {
     return;
   }
@@ -562,13 +586,13 @@ export function handleMenuKey(code: string): void {
   }
   if (scene === SCENE_TITLE) {
     if (code === 'ArrowDown' || code === 'KeyS') {
-      focus = focus <= 0 ? 1 : focus === 1 ? 2 : focus;
+      focus = focus === 0 ? 2 : focus;
     } else if (code === 'ArrowUp' || code === 'KeyW') {
-      focus = focus >= 2 ? 1 : focus === 1 ? 0 : focus;
+      focus = focus > 0 ? 0 : focus;
     } else if (code === 'ArrowLeft' || code === 'KeyA') {
-      focus = focus === 3 ? 2 : focus === 1 ? 0 : focus;
+      focus = focus === 3 ? 2 : focus === 2 ? 1 : focus;
     } else if (code === 'ArrowRight' || code === 'KeyD') {
-      focus = focus === 2 ? 3 : focus === 0 ? 1 : focus;
+      focus = focus === 1 ? 2 : focus === 2 ? 3 : focus;
     }
   } else if (scene === SCENE_SHOP) {
     const last = btns.length - 1;
@@ -602,7 +626,13 @@ export function handleMenuKey(code: string): void {
     }
   } else if (code === 'Enter' || code === 'Space') {
     activate(btns[focus].id);
-  } else if (code === 'Escape' && (scene === SCENE_SHOP || scene === SCENE_PAUSE || scene === SCENE_SCORES)) {
+  } else if (
+    code === 'Escape' &&
+    (scene === SCENE_SHOP ||
+      scene === SCENE_PAUSE ||
+      scene === SCENE_SCORES ||
+      (scene === SCENE_DEATH && deathReady()))
+  ) {
     if (scene === SCENE_PAUSE) {
       resumeGame();
     } else {
@@ -657,23 +687,12 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
     const titleL = cssW * 0.5 - titleW * 0.5;
     const titleR = titleL + titleW;
     rainbowTitle(ctx, title, titleY, titleSize);
-    const statsY = titleY + titleSize * 0.5 + 36;
-    plate(ctx, 'BEST  ' + best + ' m', titleL, statsY, 20, 'left');
-    plate(ctx, 'CRYSTALS  ' + banked, titleR, statsY, 20, 'right', '#7ef');
-    board.l = titleL;
-    board.r = titleR;
-    board.y = statsY + 40;
-    board.h = drawLadder(ctx, titleL, titleR, board.y, 5);
+    drawSaveStats(ctx, titleL, titleR, titleY + titleSize * 0.5 + 36);
   }
 
   if (scene === SCENE_SCORES) {
-    const cx = cssW * 0.5;
-    const colW = Math.min(220, cssW * 0.44);
-    const gap = 8;
-    const left = cx - colW - gap * 0.5;
-    const right = left + colW * 2 + gap;
-    plate(ctx, 'HIGH SCORES', cx, cssH * 0.08, 28, 'center');
-    drawLadder(ctx, left, right, nameBox.y + nameBox.h + 14, 20);
+    plate(ctx, 'HIGH SCORES', cssW * 0.5, cssH * 0.08, 28, 'center');
+    drawScoreBoard(ctx);
   }
 
   if (scene === SCENE_SHOP) {
@@ -691,19 +710,16 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
   if (scene === SCENE_DEATH) {
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fillRect(0, 0, cssW, cssH);
-    const d0 = cssH * 0.18 - 50;
-    const d1 = cssH * 0.28 - 50;
-    const d2 = cssH * 0.28 + 20;
-    rainbowTitle(ctx, 'RUN OVER', d0, Math.min(72, cssW * 0.12));
-    plate(ctx, lastDist + ' m', cssW * 0.5, d1, 28, 'center');
-    plate(ctx, '+' + lastGems + ' CRYSTALS', cssW * 0.5, d2, 22, 'center', '#7ef');
-    if (newBest) {
-      plate(ctx, 'NEW BEST!', cssW * 0.5, d2 + (d2 - d1), 26, 'center', '#ffd24a');
+    rainbowTitle(ctx, 'RUN OVER', cssH * 0.08, Math.min(44, cssW * 0.08));
+    const { l, r } = scoreBox();
+    drawSaveStats(ctx, l, r, cssH * 0.155, 1);
+    drawScoreBoard(ctx);
+    if (deathReady() && focus === 0 && btns.length > 1 && document.activeElement !== nameField) {
+      focus = 1;
     }
-    plate(ctx, 'TAP TO CONTINUE', cssW * 0.5, cssH * 0.88, 36, 'center');
   }
 
-  if (scene !== SCENE_RUN && scene !== SCENE_DEATH) {
+  if (scene !== SCENE_RUN) {
     for (let i = 0; i < btns.length; i++) {
       const b = btns[i];
       const on = scene === SCENE_SHOP && b.id < SHOP_ROWS ? b.id === shopSel : i === focus;

@@ -1,9 +1,12 @@
-import { best, NAME_MAX, playerId, playerLabel } from './save';
+import { best, NAME_MAX, playerId, playerLabel, playerName } from './save';
 
 const KEY = 'rrL';
 const CAP = 20;
 const MAX_SCORE = 1e6;
+const PULSE_MS = 3000;
 const WS_URL = 'wss://relay.js13kgames.com/rainbow-run';
+/** SET this name to pulse the board; it is never written onto the ladder. */
+export const SEED_NAME = 'RAINBOW-RELAY';
 
 type Row = { i: string; n: string; s: number; t: number };
 
@@ -11,11 +14,13 @@ let rows: Row[] = [];
 let sock: { send(data: string): void; readyState: number } | undefined;
 let sendAt = 0;
 let sendTimer: ReturnType<typeof setTimeout> | 0 = 0;
+let pulseTimer: ReturnType<typeof setInterval> | 0 = 0;
 
 export function initLadder(): void {
   loadBoard();
   upsertSelf();
   connect();
+  syncPulse();
 }
 
 export function boardRows(limit: number): { n: string; s: number; self: boolean }[] {
@@ -33,11 +38,36 @@ export function publishScore(): void {
 }
 
 export function publishName(): void {
-  if (best <= 0) {
+  syncPulse();
+  if (best <= 0 || seeding()) {
     return;
   }
   upsertSelf();
   scheduleSend();
+}
+
+function seeding(): boolean {
+  return playerName === SEED_NAME;
+}
+
+function syncPulse(): void {
+  if (seeding()) {
+    if (!pulseTimer) {
+      pulseTimer = setInterval(pulse, PULSE_MS);
+    }
+    pulse();
+    return;
+  }
+  if (pulseTimer) {
+    clearInterval(pulseTimer);
+    pulseTimer = 0;
+  }
+}
+
+function pulse(): void {
+  if (sock && sock.readyState === 1 && rows.length) {
+    sock.send(payload());
+  }
 }
 
 function loadBoard(): void {
@@ -70,7 +100,7 @@ function pack(list: Row[]): [string, string, number, number][] {
 }
 
 function upsertSelf(): void {
-  if (best <= 0 || !playerId) {
+  if (best <= 0 || !playerId || seeding()) {
     return;
   }
   const n = playerLabel();
@@ -161,7 +191,7 @@ function merge(incoming: Row[]): boolean {
 
 function payload(): string {
   const list = ranked().slice(0, CAP);
-  if (best > 0 && !list.some((r) => r.i === playerId)) {
+  if (best > 0 && !seeding() && !list.some((r) => r.i === playerId)) {
     list.push({ i: playerId, n: playerLabel(), s: best, t: Date.now() });
   }
   return JSON.stringify({ r: pack(list) });
