@@ -1,5 +1,5 @@
 import { HIT_H, HIT_H_SLIDE, HIT_LEN, LANE_W, RAINBOW } from './constants';
-import { drawBox, drawOct, setDepthWrite, setDrawAlpha } from './gl';
+import { drawBox, drawOct, setDepthWrite, setDrawAlpha, setGlow } from './gl';
 import { rgb } from './math';
 import { playCrystal, playPowerup } from './music';
 import { resetPath, worldPos, yawAt } from './path';
@@ -87,7 +87,7 @@ function countBits(n: number): number {
   return (n & 1) + ((n >> 1) & 1) + ((n >> 2) & 1);
 }
 
-function spawnGroup(at: number): void {
+function spawnGroup(at: number, room: number): void {
   const roll = rand();
   let kind = OBS_TOWER;
   if (roll < 0.26) {
@@ -120,14 +120,15 @@ function spawnGroup(at: number): void {
     }
   }
   const duck = kind === OBS_HIGH || kind === OBS_GATE;
+  const maxSpan = room - 2;
   for (let lane = -1; lane <= 1; lane++) {
     const blocked = !!(mask & (1 << (lane + 1)));
     if (kind === OBS_LOW && blocked) {
-      addLine(at, lane, 5, 6.4, 0.5, 1.15);
+      addLine(at, lane, 5, Math.min(10, maxSpan), 0.5, 1.15);
     } else if (duck && blocked) {
-      addLine(at, lane, 5, 3.6, 0.5, -0.28);
+      addLine(at, lane, 5, Math.min(5.6, maxSpan), 0.5, -0.28);
     } else if (!blocked && rand() < 0.55) {
-      addLine(at + 2.2, lane, 3, 2.2, 0.55, 0);
+      addLine(at + 2.2, lane, 3, Math.min(3.4, maxSpan * 0.5), 0.55, 0);
     }
   }
   spawnDrop(at, mask);
@@ -205,7 +206,7 @@ export function updateWorld(dt: number): void {
   const density = Math.max(8, 15 - s * 0.012);
   const ahead = Math.max(70, speed * 2.8);
   while (nextS < s + ahead) {
-    spawnGroup(nextS);
+    spawnGroup(nextS, density);
     nextS += density + rand() * 5;
   }
 
@@ -489,6 +490,7 @@ export function drawWorld(view: Float32Array): void {
     }
   }
   endShadows();
+  setGlow(0.09);
   for (const o of obstacles) {
     const yaw = yawAt(o.s);
     const x = o.lane * LANE_W;
@@ -515,6 +517,7 @@ export function drawWorld(view: Float32Array): void {
       drawBox(view, wp[0], wp[1], wp[2], 0, yaw, LANE_W * 0.85, 1.1, 0.4, 0.28, 0.12, 0.16);
     }
   }
+  setGlow(0);
   const spin = s * 2;
   for (const d of drops) {
     if (d.dead) {
