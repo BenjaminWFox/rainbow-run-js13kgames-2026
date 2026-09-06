@@ -31,9 +31,9 @@ export const DEATH_HOLD = 0.52;
 
 export const CAM_FOV = 1.05;
 export const CAM_BACK = 7.2;
-export const CAM_HEIGHT = 3.4;
+export const CAM_HEIGHT = 4.1;
 export const CAM_LOOK = 9;
-export const CAM_LOOK_Y = 0.7;
+export const CAM_LOOK_Y = 0.85;
 
 export const SKY_R = 0.14;
 export const SKY_G = 0.1;
