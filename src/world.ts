@@ -65,6 +65,8 @@ const wp = [0, 0, 0];
 let trailAcc = 0;
 
 let nextS = 28;
+/** Last lane that got a crystal line. 2 = none yet. */
+let lastGem = 2;
 /** Still overlapping after iframes — pass through, don't break or hit. */
 let pass = false;
 
@@ -75,6 +77,7 @@ export function resetWorld(): void {
   bursts.length = 0;
   trailAcc = 0;
   nextS = 28;
+  lastGem = 2;
   pass = false;
   resetPath();
 }
@@ -120,16 +123,30 @@ function spawnGroup(at: number, room: number): void {
     }
   }
   const duck = kind === OBS_HIGH || kind === OBS_GATE;
-  const maxSpan = room - 2;
+  const span = Math.min(10, room - 2);
+  let gem = 2;
   for (let lane = -1; lane <= 1; lane++) {
-    const blocked = !!(mask & (1 << (lane + 1)));
-    if (kind === OBS_LOW && blocked) {
-      addLine(at, lane, 5, Math.min(10, maxSpan), 0.5, 1.15);
-    } else if (duck && blocked) {
-      addLine(at, lane, 5, Math.min(5.6, maxSpan), 0.5, -0.28);
-    } else if (!blocked && rand() < 0.55) {
-      addLine(at + 2.2, lane, 3, Math.min(3.4, maxSpan * 0.5), 0.55, 0);
+    if (lane === lastGem) {
+      continue;
     }
+    const blocked = !!(mask & (1 << (lane + 1)));
+    if (!(blocked ? kind === OBS_LOW || duck : rand() < 0.55)) {
+      continue;
+    }
+    if (gem === 2 || rand() < 0.5) {
+      gem = lane;
+    }
+  }
+  if (gem !== 2) {
+    const blocked = !!(mask & (1 << (gem + 1)));
+    if (kind === OBS_LOW && blocked) {
+      addLine(at, gem, 5, span, 0.5, 1.15);
+    } else if (duck && blocked) {
+      addLine(at, gem, 5, span, 0.5, -0.28);
+    } else {
+      addLine(at, gem, 3, span * 0.5, 0.55, 0);
+    }
+    lastGem = gem;
   }
   spawnDrop(at, mask);
 }
