@@ -1,5 +1,5 @@
 import { HIT_H, HIT_H_SLIDE, HIT_LEN, LANE_W, RAINBOW } from './constants';
-import { drawBox, drawOct, setDepthWrite, setDrawAlpha } from './gl';
+import { drawBox, drawOct, setDepthWrite, setDrawAlpha, setGlow } from './gl';
 import { rgb } from './math';
 import { playCrystal, playPowerup } from './music';
 import { resetPath, worldPos, yawAt } from './path';
@@ -65,6 +65,8 @@ const wp = [0, 0, 0];
 let trailAcc = 0;
 
 let nextS = 28;
+/** Last lane that got a crystal line. 2 = none yet. */
+let lastGem = 2;
 /** Still overlapping after iframes — pass through, don't break or hit. */
 let pass = false;
 
@@ -75,6 +77,7 @@ export function resetWorld(): void {
   bursts.length = 0;
   trailAcc = 0;
   nextS = 28;
+  lastGem = 2;
   pass = false;
   resetPath();
 }
@@ -87,7 +90,7 @@ function countBits(n: number): number {
   return (n & 1) + ((n >> 1) & 1) + ((n >> 2) & 1);
 }
 
-function spawnGroup(at: number): void {
+function spawnGroup(at: number, room: number): void {
   const roll = rand();
   let kind = OBS_TOWER;
   if (roll < 0.26) {
@@ -120,15 +123,30 @@ function spawnGroup(at: number): void {
     }
   }
   const duck = kind === OBS_HIGH || kind === OBS_GATE;
+  const span = Math.min(10, room - 2);
+  let gem = 2;
   for (let lane = -1; lane <= 1; lane++) {
-    const blocked = !!(mask & (1 << (lane + 1)));
-    if (kind === OBS_LOW && blocked) {
-      addLine(at, lane, 5, 4.2, 0.5, 1.15);
-    } else if (duck && blocked) {
-      addLine(at, lane, 5, 3.6, 0.5, -0.28);
-    } else if (!blocked && rand() < 0.55) {
-      addLine(at + 2.2, lane, 3, 2.2, 0.55, 0);
+    if (lane === lastGem) {
+      continue;
     }
+    const blocked = !!(mask & (1 << (lane + 1)));
+    if (!(blocked ? kind === OBS_LOW || duck : rand() < 0.55)) {
+      continue;
+    }
+    if (gem === 2 || rand() < 0.5) {
+      gem = lane;
+    }
+  }
+  if (gem !== 2) {
+    const blocked = !!(mask & (1 << (gem + 1)));
+    if (kind === OBS_LOW && blocked) {
+      addLine(at, gem, 5, span, 0.5, 1.15);
+    } else if (duck && blocked) {
+      addLine(at, gem, 5, span, 0.5, -0.28);
+    } else {
+      addLine(at, gem, 3, span * 0.5, 0.55, 0);
+    }
+    lastGem = gem;
   }
   spawnDrop(at, mask);
 }
@@ -205,7 +223,7 @@ export function updateWorld(dt: number): void {
   const density = Math.max(8, 15 - s * 0.012);
   const ahead = Math.max(70, speed * 2.8);
   while (nextS < s + ahead) {
-    spawnGroup(nextS);
+    spawnGroup(nextS, density);
     nextS += density + rand() * 5;
   }
 
@@ -489,6 +507,7 @@ export function drawWorld(view: Float32Array): void {
     }
   }
   endShadows();
+  setGlow(0.09);
   for (const o of obstacles) {
     const yaw = yawAt(o.s);
     const x = o.lane * LANE_W;
@@ -515,6 +534,7 @@ export function drawWorld(view: Float32Array): void {
       drawBox(view, wp[0], wp[1], wp[2], 0, yaw, LANE_W * 0.85, 1.1, 0.4, 0.28, 0.12, 0.16);
     }
   }
+  setGlow(0);
   const spin = s * 2;
   for (const d of drops) {
     if (d.dead) {

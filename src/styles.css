@@ -5,6 +5,7 @@ body {
   background: #120814;
   touch-action: none;
   height: 100%;
+  min-height: 100dvh;
   user-select: none;
 }
 
@@ -20,4 +21,29 @@ canvas {
 
 #u {
   z-index: 1;
+}
+
+#name {
+  position: fixed;
+  display: none;
+  box-sizing: border-box;
+  margin: 0;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font: 600 18px Segoe UI, system-ui, sans-serif;
+  padding: 0 14px;
+  outline: none;
+  z-index: 2;
+  user-select: text;
+  touch-action: manipulation;
+}
+
+#name::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+#name:focus {
+  border-color: #fff;
 }

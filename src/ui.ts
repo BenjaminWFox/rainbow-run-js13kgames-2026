@@ -1,13 +1,17 @@
 import { CHARGE_DIST, FONT, RAINBOW } from './constants';
 import { rgb } from './math';
-import { applyMute, playPowerup } from './music';
+import { applyMute, playCrystal, playHit, playPowerup } from './music';
 import { charge, iframes, lives, resetPlayer, runCrystals, s } from './player';
 import {
   addBank,
   banked,
   best,
   muted,
+  NAME_MAX,
   noteBest,
+  playerId,
+  playerName,
+  setPlayerName,
   SHOP_CAPS,
   SHOP_FLAVOR,
   SHOP_NAMES,
@@ -17,6 +21,7 @@ import {
   shopRanks,
   tryBuy,
 } from './save';
+import { boardRows, publishName, publishScore } from './ladder';
 import { resetWorld } from './world';
 
 export const SCENE_TITLE = 0;
@@ -24,6 +29,7 @@ export const SCENE_RUN = 1;
 export const SCENE_PAUSE = 2;
 export const SCENE_DEATH = 3;
 export const SCENE_SHOP = 4;
+export const SCENE_SCORES = 5;
 
 export let scene = SCENE_TITLE;
 let cssW = 1;
@@ -35,6 +41,8 @@ let newBest = false;
 let lastDist = 0;
 let lastGems = 0;
 let titleHoofY = 0;
+let deathAt = 0;
+const DEATH_WAIT = 1250;
 
 export function setTitleHoofY(y: number): void {
   titleHoofY = y;
@@ -45,6 +53,9 @@ type Btn = { x: number; y: number; w: number; h: number; label: string; id: numb
 const btns: Btn[] = [];
 const pauseBtn = { x: 14, y: 12, w: 48, h: 40 };
 let flavorBox = { x: 0, y: 0, w: 0, h: 0 };
+const nameBox = { x: 0, y: 0, w: 0, h: 0 };
+let nameField: HTMLInputElement | undefined;
+let nameFieldOpen = false;
 
 export function setViewSize(w: number, h: number): void {
   cssW = w;
@@ -63,8 +74,20 @@ export function finishRun(showDeath: boolean): void {
   lastDist = s | 0;
   lastGems = runCrystals;
   newBest = noteBest(lastDist);
-  scene = showDeath ? SCENE_DEATH : SCENE_TITLE;
+  if (newBest) {
+    publishScore();
+  }
+  if (showDeath) {
+    deathAt = Date.now();
+    scene = SCENE_DEATH;
+  } else {
+    scene = SCENE_TITLE;
+  }
   focus = 0;
+}
+
+function deathReady(): boolean {
+  return Date.now() - deathAt >= DEATH_WAIT;
 }
 
 export function pauseGame(): void {
@@ -78,6 +101,46 @@ export function resumeGame(): void {
   if (scene === SCENE_PAUSE) {
     scene = SCENE_RUN;
   }
+}
+
+function scoreBox(): { l: number; r: number } {
+  const w = Math.min(220, cssW * 0.44);
+  const g = 8;
+  const l = cssW * 0.5 - w - g * 0.5;
+  return { l, r: l + w * 2 + g };
+}
+
+function drawSaveStats(
+  ctx: CanvasRenderingContext2D,
+  l: number,
+  r: number,
+  y: number,
+  run?: 1
+): void {
+  plate(ctx, 'BEST  ' + best + ' m', l, y, 20, 'left');
+  plate(ctx, 'CRYSTALS  ' + banked, r, y, 20, 'right', '#7ef');
+  if (run) {
+    plate(ctx, lastDist + ' m', l, y + 38, 20, 'left', newBest ? '#ffd24a' : '#fff');
+    plate(ctx, '+' + lastGems, r, y + 38, 20, 'right', '#7ef');
+  }
+}
+
+function addScoreChrome(nameY: number, foot: string): void {
+  const { l, r } = scoreBox();
+  const setW = Math.min(148, (r - l) * 0.4);
+  nameBox.x = l;
+  nameBox.y = nameY;
+  nameBox.w = r - l - setW - 8;
+  nameBox.h = 44;
+  addBtn(l + nameBox.w + 8, nameY, setW, nameBox.h, 'UPDATE NAME', 0);
+  if (foot) {
+    addBtn(l, cssH * 0.88, r - l, 52, foot, 1);
+  }
+}
+
+function drawScoreBoard(ctx: CanvasRenderingContext2D): void {
+  const { l, r } = scoreBox();
+  drawLadder(ctx, l, r, nameBox.y + nameBox.h + 14, 20);
 }
 
 function plate(
@@ -104,11 +167,16 @@ function plate(
   ctx.fillText(text, drawX, y);
 }
 
+function titleWidth(ctx: CanvasRenderingContext2D, text: string, size: number): number {
+  ctx.font = '800 ' + size + 'px ' + FONT;
+  return ctx.measureText(text).width;
+}
+
 function rainbowTitle(ctx: CanvasRenderingContext2D, text: string, y: number, size: number): void {
   ctx.font = '800 ' + size + 'px ' + FONT;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  const total = ctx.measureText(text).width;
+  const total = titleWidth(ctx, text, size);
   let x = cssW * 0.5 - total * 0.5;
   let ci = 0;
   for (const ch of text) {
@@ -123,6 +191,71 @@ function rainbowTitle(ctx: CanvasRenderingContext2D, text: string, y: number, si
       ci++;
     }
   }
+}
+
+function ladderLine(rank: number, row: { n: string; s: number } | undefined): string {
+  return row ? rank + '  ' + row.s + ' - ' + row.n : rank + '  ...';
+}
+
+function drawLadder(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  right: number,
+  y: number,
+  slots: number
+): number {
+  const cols = slots > 5 ? 2 : 1;
+  const perCol = slots / cols;
+  const size = slots > 5 ? 15 : 16;
+  const lineH = slots > 5 ? 22 : 24;
+  const padX = 14;
+  const padY = 10;
+  const rows = boardRows(slots);
+  ctx.font = '600 ' + size + 'px ' + FONT;
+  let w = right - left;
+  if (cols === 1) {
+    let maxW = 0;
+    for (let i = 0; i < slots; i++) {
+      maxW = Math.max(maxW, ctx.measureText(ladderLine(i + 1, rows[i])).width);
+    }
+    w = maxW + padX * 2;
+    left = (left + right - w) * 0.5;
+  }
+  const h = lineH * perCol + padY * 2;
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  roundRect(ctx, left, y, w, h, 10);
+  ctx.fill();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  for (let c = 0; c < cols; c++) {
+    const x = left + padX + c * (w * 0.5);
+    for (let i = 0; i < perCol; i++) {
+      const rank = c * perCol + i + 1;
+      const ly = y + padY + lineH * (i + 0.5);
+      drawLadderSlot(ctx, x, ly, lineH, rank, rows[rank - 1]);
+    }
+  }
+  return h;
+}
+
+function drawLadderSlot(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  lineH: number,
+  rank: number,
+  row: { n: string; s: number; self: boolean } | undefined
+): void {
+  const self = !!row?.self;
+  const label = ladderLine(rank, row);
+  if (self) {
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    roundRect(ctx, x - 6, y - lineH * 0.5 + 2, tw + 12, lineH - 4, 6);
+    ctx.fill();
+  }
+  ctx.fillStyle = self ? '#111' : '#fff';
+  ctx.fillText(label, x, y);
 }
 
 function drawFlavor(ctx: CanvasRenderingContext2D, text: string): void {
@@ -164,29 +297,101 @@ function addBtn(x: number, y: number, w: number, h: number, label: string, id: n
   btns.push({ x, y, w, h, label, id });
 }
 
+function goTitle(): void {
+  scene = SCENE_TITLE;
+  focus = 0;
+}
+
+function commitName(): void {
+  if (nameField) {
+    setPlayerName(nameField.value);
+    nameField.value = playerName;
+    publishName();
+  }
+}
+
+function ensureNameField(): HTMLInputElement {
+  if (nameField) {
+    return nameField;
+  }
+  const el = document.createElement('input');
+  el.id = 'name';
+  el.maxLength = NAME_MAX;
+  el.autocomplete = 'off';
+  el.spellcheck = false;
+  el.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.code === 'Enter') {
+      e.preventDefault();
+      commitName();
+      el.blur();
+    }
+    if (e.code === 'Escape') {
+      e.preventDefault();
+      el.blur();
+      if (scene !== SCENE_DEATH || deathReady()) {
+        goTitle();
+      }
+    }
+  });
+  el.addEventListener('blur', () => {
+    window.scrollTo(0, 0);
+    requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      window.dispatchEvent(new Event('resize'));
+    });
+  });
+  document.body.appendChild(el);
+  nameField = el;
+  return el;
+}
+
+function syncNameField(): void {
+  const show = scene === SCENE_SCORES || scene === SCENE_DEATH;
+  const el = ensureNameField();
+  el.style.display = show ? 'block' : 'none';
+  el.placeholder = playerId;
+  if (show) {
+    el.style.left = nameBox.x + 'px';
+    el.style.top = nameBox.y + 'px';
+    el.style.width = nameBox.w + 'px';
+    el.style.height = nameBox.h + 'px';
+    if (!nameFieldOpen) {
+      el.value = playerName;
+      nameFieldOpen = true;
+    }
+  } else {
+    if (nameFieldOpen && document.activeElement === el) {
+      el.blur();
+    }
+    nameFieldOpen = false;
+  }
+}
+
 function layout(): void {
   btns.length = 0;
   const cx = cssW * 0.5;
   const bw = Math.min(320, cssW * 0.7);
   const bh = 52;
   if (scene === SCENE_TITLE) {
-    const smallW = Math.min(148, cssW * 0.28 + 20);
+    const muteW = 56;
+    const smallW = Math.min(160, (Math.min(cssW * 0.92, 420) - muteW - 12) * 0.5);
     const smallH = 52;
     const gap = 6;
     const startH = 44;
-    const startY = titleHoofY > 8 ? titleHoofY + 31 : cssH * 0.62;
+    const hoofY = titleHoofY > 8 ? titleHoofY + 31 : cssH * 0.62;
+    const startY = hoofY;
     addBtn(cx - bw * 0.5, startY, bw, startH, 'START', 0);
     const rowY = startY + startH + gap;
-    const rowW = smallW * 2 + gap;
-    addBtn(cx - rowW * 0.5, rowY, smallW, smallH, 'UPGRADES', 1);
-    addBtn(
-      cx - rowW * 0.5 + smallW + gap,
-      rowY,
-      smallW,
-      smallH,
-      muted ? 'SOUND: OFF' : 'SOUND: ON',
-      2
-    );
+    const rowW = smallW * 2 + muteW + gap * 2;
+    const rowX = cx - rowW * 0.5;
+    addBtn(rowX, rowY, smallW, smallH, 'UPGRADES', 1);
+    addBtn(rowX + smallW + gap, rowY, muteW, smallH, muted ? '🔇' : '🔈', 2);
+    addBtn(rowX + smallW + gap + muteW + gap, rowY, smallW, smallH, 'HIGH SCORES', 3);
+  } else if (scene === SCENE_SCORES) {
+    addScoreChrome(cssH * 0.16, 'BACK');
+  } else if (scene === SCENE_DEATH) {
+    addScoreChrome(cssH * 0.155 + 70, deathReady() ? 'CONTINUE' : '');
   } else if (scene === SCENE_PAUSE) {
     addBtn(cx - bw * 0.5, cssH * 0.42, bw, bh, 'RESUME', 0);
     addBtn(cx - bw * 0.5, cssH * 0.42 + 66, bw, bh, 'QUIT', 1);
@@ -231,11 +436,13 @@ function drawBtn(ctx: CanvasRenderingContext2D, b: Btn, selected: boolean): void
     '700 ' +
     (b.label === 'START'
       ? 28
-      : b.label === 'UPGRADES' || b.label.startsWith('SOUND')
-        ? 18
-        : scene === SCENE_SHOP && b.id < SHOP_ROWS
-          ? 15
-          : 22) +
+      : b.label === '🔈' || b.label === '🔇'
+        ? 24
+        : b.label === 'UPGRADES' || b.label === 'HIGH SCORES' || b.label === 'UPDATE NAME'
+          ? 18
+          : scene === SCENE_SHOP && b.id < SHOP_ROWS
+            ? 15
+            : 22) +
     'px ' +
     FONT;
   ctx.textAlign = 'center';
@@ -281,7 +488,35 @@ function pickBtn(x: number, y: number): number {
   return -1;
 }
 
+function buySelected(): void {
+  if (shopRanks[shopSel] >= SHOP_CAPS[shopSel]) {
+    playHit();
+    return;
+  }
+  playCrystal();
+  if (tryBuy(shopSel)) {
+    playPowerup();
+  }
+}
+
 function activate(id: number): void {
+  if (scene === SCENE_TITLE && id === 2) {
+    if (muted) {
+      setMuted(false);
+      applyMute();
+      playCrystal();
+    } else {
+      playCrystal();
+      setMuted(true);
+      applyMute();
+    }
+    return;
+  }
+  if (scene === SCENE_SHOP && id === 21) {
+    buySelected();
+    return;
+  }
+  playCrystal();
   if (scene === SCENE_TITLE) {
     if (id === 0) {
       startRun();
@@ -289,9 +524,17 @@ function activate(id: number): void {
       scene = SCENE_SHOP;
       focus = 0;
       shopSel = 0;
-    } else if (id === 2) {
-      setMuted(!muted);
-      applyMute();
+    } else if (id === 3) {
+      scene = SCENE_SCORES;
+      focus = 0;
+    }
+    return;
+  }
+  if (scene === SCENE_SCORES || scene === SCENE_DEATH) {
+    if (id === 0) {
+      commitName();
+    } else if (scene !== SCENE_DEATH || deathReady()) {
+      goTitle();
     }
     return;
   }
@@ -309,24 +552,15 @@ function activate(id: number): void {
       return;
     }
     if (id === 20) {
-      scene = SCENE_TITLE;
-      focus = 0;
-      return;
-    }
-    if (id === 21 && tryBuy(shopSel)) {
-      playPowerup();
+      goTitle();
     }
   }
 }
 
 export function handleTap(x: number, y: number): void {
-  if (scene === SCENE_DEATH) {
-    scene = SCENE_TITLE;
-    focus = 0;
-    return;
-  }
   if (scene === SCENE_RUN) {
     if (hitPause(x, y)) {
+      playCrystal();
       pauseGame();
     }
     return;
@@ -340,11 +574,10 @@ export function handleTap(x: number, y: number): void {
 }
 
 export function handleMenuKey(code: string): void {
-  if (scene === SCENE_DEATH) {
-    scene = SCENE_TITLE;
+  if (scene === SCENE_RUN) {
     return;
   }
-  if (scene === SCENE_RUN) {
+  if (document.activeElement === nameField) {
     return;
   }
   layout();
@@ -353,13 +586,13 @@ export function handleMenuKey(code: string): void {
   }
   if (scene === SCENE_TITLE) {
     if (code === 'ArrowDown' || code === 'KeyS') {
-      focus = focus === 0 ? 1 : 0;
+      focus = focus === 0 ? 2 : focus;
     } else if (code === 'ArrowUp' || code === 'KeyW') {
-      focus = focus === 0 ? 1 : 0;
+      focus = focus > 0 ? 0 : focus;
     } else if (code === 'ArrowLeft' || code === 'KeyA') {
-      focus = 1;
+      focus = focus === 3 ? 2 : focus === 2 ? 1 : focus;
     } else if (code === 'ArrowRight' || code === 'KeyD') {
-      focus = 2;
+      focus = focus === 1 ? 2 : focus === 2 ? 3 : focus;
     }
   } else if (scene === SCENE_SHOP) {
     const last = btns.length - 1;
@@ -388,17 +621,22 @@ export function handleMenuKey(code: string): void {
     const id = btns[focus].id;
     if (id === 20) {
       activate(id);
-    } else if (tryBuy(shopSel)) {
-      playPowerup();
+    } else {
+      buySelected();
     }
   } else if (code === 'Enter' || code === 'Space') {
     activate(btns[focus].id);
-  } else if (code === 'Escape' && (scene === SCENE_SHOP || scene === SCENE_PAUSE)) {
+  } else if (
+    code === 'Escape' &&
+    (scene === SCENE_SHOP ||
+      scene === SCENE_PAUSE ||
+      scene === SCENE_SCORES ||
+      (scene === SCENE_DEATH && deathReady()))
+  ) {
     if (scene === SCENE_PAUSE) {
       resumeGame();
     } else {
-      scene = SCENE_TITLE;
-      focus = 0;
+      goTitle();
     }
   }
 }
@@ -442,9 +680,19 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
   }
 
   if (scene === SCENE_TITLE) {
-    rainbowTitle(ctx, 'RAINBOW RUN', cssH * 0.18 - 50, Math.min(72, cssW * 0.12));
-    plate(ctx, 'BEST  ' + best + ' m', cssW * 0.5, cssH * 0.28 - 50, 22, 'center');
-    plate(ctx, 'CRYSTALS  ' + banked, cssW * 0.5, cssH * 0.28 + 20, 20, 'center', '#7ef');
+    const title = 'RAINBOW RUN';
+    const titleSize = Math.min(72, cssW * 0.12);
+    const titleY = cssH * 0.18 - 50;
+    const titleW = titleWidth(ctx, title, titleSize);
+    const titleL = cssW * 0.5 - titleW * 0.5;
+    const titleR = titleL + titleW;
+    rainbowTitle(ctx, title, titleY, titleSize);
+    drawSaveStats(ctx, titleL, titleR, titleY + titleSize * 0.5 + 36);
+  }
+
+  if (scene === SCENE_SCORES) {
+    plate(ctx, 'HIGH SCORES', cssW * 0.5, cssH * 0.08, 28, 'center');
+    drawScoreBoard(ctx);
   }
 
   if (scene === SCENE_SHOP) {
@@ -462,23 +710,21 @@ export function drawUi(ctx: CanvasRenderingContext2D): void {
   if (scene === SCENE_DEATH) {
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fillRect(0, 0, cssW, cssH);
-    const d0 = cssH * 0.18 - 50;
-    const d1 = cssH * 0.28 - 50;
-    const d2 = cssH * 0.28 + 20;
-    rainbowTitle(ctx, 'RUN OVER', d0, Math.min(72, cssW * 0.12));
-    plate(ctx, lastDist + ' m', cssW * 0.5, d1, 28, 'center');
-    plate(ctx, '+' + lastGems + ' CRYSTALS', cssW * 0.5, d2, 22, 'center', '#7ef');
-    if (newBest) {
-      plate(ctx, 'NEW BEST!', cssW * 0.5, d2 + (d2 - d1), 26, 'center', '#ffd24a');
+    rainbowTitle(ctx, 'RUN OVER', cssH * 0.08, Math.min(44, cssW * 0.08));
+    const { l, r } = scoreBox();
+    drawSaveStats(ctx, l, r, cssH * 0.155, 1);
+    drawScoreBoard(ctx);
+    if (deathReady() && focus === 0 && btns.length > 1 && document.activeElement !== nameField) {
+      focus = 1;
     }
-    plate(ctx, 'TAP TO CONTINUE', cssW * 0.5, cssH * 0.88, 36, 'center');
   }
 
-  if (scene !== SCENE_RUN && scene !== SCENE_DEATH) {
+  if (scene !== SCENE_RUN) {
     for (let i = 0; i < btns.length; i++) {
       const b = btns[i];
       const on = scene === SCENE_SHOP && b.id < SHOP_ROWS ? b.id === shopSel : i === focus;
       drawBtn(ctx, b, on);
     }
   }
+  syncNameField();
 }

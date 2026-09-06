@@ -1,4 +1,4 @@
-import { CAM_FOV } from './constants';
+import { CAM_FOV, CAM_LIFT } from './constants';
 import { mat4, mul, perspective, trs } from './math';
 
 let gl: WebGLRenderingContext;
@@ -7,6 +7,7 @@ let uColor: WebGLUniformLocation;
 let uAlpha: WebGLUniformLocation;
 let aLoc: number;
 let drawA = 1;
+let glow = 0;
 let boxBuf: WebGLBuffer;
 let pyrBuf: WebGLBuffer;
 let octBuf: WebGLBuffer;
@@ -129,9 +130,14 @@ export function setDepthWrite(on: boolean): void {
   gl.depthMask(on);
 }
 
+export function setGlow(pad: number): void {
+  glow = pad;
+}
+
 export function resizeGl(w: number, h: number): void {
   gl.viewport(0, 0, w, h);
   perspective(proj, CAM_FOV, w / Math.max(h, 1), 0.2, 220);
+  proj[9] -= (CAM_LIFT * 2) / Math.max((gl.canvas as HTMLCanvasElement).clientHeight, 1);
 }
 
 /** NDC → CSS pixels for overlay layout (title START under the hooves). */
@@ -208,6 +214,14 @@ export function drawBox(
   b: number,
   rz = 0
 ): void {
+  if (glow) {
+    const a = drawA;
+    drawA *= 0.25;
+    gl.depthMask(false);
+    drawPrim(boxBuf, 36, view, x, y, z, rx, ry, sx + glow, sy + glow, sz + glow, 1, 0.96, 0.9, rz);
+    drawA = a;
+    gl.depthMask(true);
+  }
   drawPrim(boxBuf, 36, view, x, y, z, rx, ry, sx, sy, sz, r, g, b, rz);
 }
 

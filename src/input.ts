@@ -16,6 +16,9 @@ export const SWIPE_DOWN = 4;
 
 export function initInput(canvas: HTMLCanvasElement): void {
   window.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLInputElement) {
+      return;
+    }
     if (e.code === 'Space' || e.code.startsWith('Arrow')) {
       e.preventDefault();
     }
